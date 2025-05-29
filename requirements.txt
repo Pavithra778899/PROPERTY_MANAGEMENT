@@ -9,4 +9,5 @@ snowflake-snowpark-python
 pandas
 
 plotly
+snowflake-core
 
