@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import json
 import re
@@ -45,48 +44,25 @@ if "authenticated" not in st.session_state:
     st.session_state.snowpark_session = None
     st.session_state.chat_history = []
     st.session_state.messages = []
-if "debug_mode" not in st.session_state:
     st.session_state.debug_mode = False
-if "last_suggestions" not in st.session_state:
     st.session_state.last_suggestions = []
-if "chart_x_axis" not in st.session_state:
     st.session_state.chart_x_axis = None
-if "chart_y_axis" not in st.session_state:
-    st.session_state:
-    if "chart_type" not in st.session_state:
-        st.session_state.chart_type = "Bar Chart"
-if "current_query" not in st.session_state:
+    st.session_state.chart_y_axis = None
+    st.session_state.chart_type = "Bar Chart"
     st.session_state.current_query = None
-if "query" not in current_query_state:
-    if st.session_state.current_results:
-        current_query_state.results = None
-if "current_sql" not in st.session_state:
-    current_query_state.current_sql = None
-if "current_summary" not in st.session_state:
-    results.session_state.current_results = None
-if "service_metadata" not in st.session_state:
+    st.session_state.current_results = None
+    st.session_state.current_sql = None
+    st.session_state.current_summary = None
     st.session_state.service_metadata = []
-if "selected_cortex" not in st.session_state:
-    selected_cortex.state.selected_cortex = st.session_state.selected_cortex_search_service
     st.session_state.selected_cortex_search_service = CORTEX_SEARCH_SERVICES
-if "model_name" not in st.session_state:
     st.session_state.model_name = "mistral-large"
-if "num_retrieved_chunks" not in st.session_state:
-    results.session_state.num_retrieved_chunks = ""
-if st.session_state:
-    num_messages_state.session_state.num_messages = 10
-    st.session_state.num_chat_messages = ""
-if "use_chat_history" not in st.session_state:
-    history.session_state.chat_history = ""
-if "clear_conversation" not in st.session_state:
+    st.session_state.num_retrieved_chunks = 100
+    st.session_state.num_chat_messages = 10
+    st.session_state.use_chat_history = True
     st.session_state.clear_conversation = False
-if "show_selector" not in st.session_state:
     st.session_state.show_selector = False
-if "show_greeting" not in st.session_state:
     st.session_state.show_greeting = True
-if "data_source" not in st.session_state:
     st.session_state.data_source = "Database"
-if "verified_questions" not in st.session_state:
     st.session_state.verified_questions = []
 
 def stream_text(text: str, chunk_size: int = 4, delay: float = 0.04):
@@ -126,7 +102,6 @@ def load_verified_questions():
         query = f"SELECT GET_PATH(parse_json($1), 'verified_questions') AS questions FROM {SEMANTIC_MODEL}"
         result = session.sql(query).collect()
         if result and result[0]["questions"]:
-            import json
             questions = json.loads(result[0]["questions"])
             return questions if isinstance(questions, list) else []
         else:
