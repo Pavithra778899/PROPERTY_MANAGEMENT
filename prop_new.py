@@ -309,10 +309,11 @@ else:
 
 
 def is_structured_query(query: str):
-        structured_patterns = [
-            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|rejected deliveries?|least|highest|duration|approval)\b',
-            r'\b(total|show|top|funding|net increase|net decrease|order by|how much|give|count|least|highest|by year|how many|total amount|version|scenario|forecast|year|savings|award|position|budget|allocation|expenditure|department|variance|breakdown|comparison|change|which|list|percentage|billing|payment)\b'
-        ]
+       structured_patterns = [
+    r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|rejected deliveries?|least|highest|duration|approval)\b',
+    r'\b(top|funding|net increase|net decrease|how much|give|by year|total amount|version|scenario|forecast|year|savings|award|position|budget|allocation|expenditure|department|variance|breakdown|comparison|change|percentage|billing|payment)\b',
+    r'\b(show|list|which|count|total|how many|how much|order by|group by|budget|expenditure|allocation|forecast|savings|position|award|version|scenario|variance|billing|payment)\b'
+]
         return any(re.search(pattern, query.lower()) for pattern in structured_patterns)
 
 
