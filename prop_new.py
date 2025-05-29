@@ -307,12 +307,17 @@ else:
                 st.sidebar.error(f"SQL Error Details: {str(e)}")
             return None
 
-    def is_structured_query(query: str):
-        structured_patterns = [
-            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|rejected deliveries?|least|highest|duration|approval)\b',
-            r'\b(vendor|supplier|requisition|purchase order|po|organization|department|buyer|delivery|received|billed|rejected|late|on time|late deliveries?|approval duration)\b'
-        ]
-        return any(re.search(pattern, query.lower()) for pattern in structured_patterns)
+
+def is_structured_query(query: str) -> bool:
+    """
+    Determines if a query is structured based on specific keywords associated with structured data queries.
+    Uses regular expressions to match full words and phrases accurately.
+    """
+    structured_patterns = [
+        r'\b(total|show|top|funding|net increase|net decrease|group by|order by|how much|give|count|avg|max|min|least|highest|by year|how many|total amount|version|scenario|forecast|year|savings|award|position|budget|allocation|expenditure|department|variance|breakdown|comparison|change|which|list|percentage|billing|payment)\b'
+    ]
+    return any(re.search(pattern, query.lower()) for pattern in structured_patterns)
+
 
     def is_complete_query(query: str):
         complete_patterns = [r'\b(generate|write|create|describe|explain)\b']
