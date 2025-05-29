@@ -76,6 +76,13 @@ if "use_chat_history" not in st.session_state:
     st.session_state.use_chat_history = True
 if "clear_conversation" not in st.session_state:
     st.session_state.clear_conversation = False
+if "show_selector" not in st.session_state:
+    st.session_state.show_selector = False
+# NEW: Initialize show_greeting and data_source
+if "show_greeting" not in st.session_state:
+    st.session_state.show_greeting = True
+if "data_source" not in st.session_state:
+    st.session_state.data_source = "Database"  # Default to Database
 
 # Hide Streamlit branding and prevent chat history shading
 st.markdown("""
@@ -105,6 +112,7 @@ def start_new_conversation():
     st.session_state.chart_type = "Bar Chart"
     st.session_state.last_suggestions = []
     st.session_state.clear_conversation = False
+    st.session_state.show_greeting = False
     st.rerun()
 
 def init_service_metadata():
@@ -332,7 +340,7 @@ else:
     def is_greeting_query(query: str):
         greeting_patterns = [
             r'^\b(hello|hi|hey|greet)\b$',
-            r'^\b(hello|hi|hey|greet)\b\s.*$'
+            r'^\b(hello|hi|hey,greet)\b\s.*$'
         ]
         return any(re.search(pattern, query.lower()) for pattern in greeting_patterns)
 
@@ -447,7 +455,6 @@ else:
                 f"Generate 3–5 clear, concise sample questions related to properties, leases, tenants, rent, or occupancy metrics. "
                 f"The questions should be easy for a business user to understand and answerable using property management data such as lease terms, tenant names, property locations, rent amounts, or occupancy rates. "
                 f"Format as a numbered list. Example format:\n1. What is the current occupancy rate for each property?\n2. Which tenants have leases expiring this quarter?"
-
             )
             response = complete(st.session_state.model_name, prompt)
             if response:
@@ -475,24 +482,6 @@ else:
                 "What is the average time taken to approve lease agreements by each property manager in the current fiscal year?",
                 "Which property manager has signed the most new leases in the last month?"
             ]
-     # Step 1: Button to choose data source
-if st.button("Select Data Source"):
-    st.session_state.show_selector = True
-
-# Step 2: Show radio buttons after clicking the button
-if st.session_state.get("show_selector", False):
-    source = st.radio("Choose the data source:", ["Document", "Database"])
-
-    # Step 3: Load data based on selection
-    if source == "Document":
-        st.write("📄 Reading data from Document...")
-        data = read_from_document()  # your custom function
-    elif source == "Database":
-        st.write("🗄️ Reading data from Database...")
-        data = read_from_database()  # your custom function
-
-    # Step 4: Display the result (optional)
-    display_data(data)       
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
         try:
@@ -561,6 +550,8 @@ if st.session_state.get("show_selector", False):
             st.image(logo_url, width=250)
         with button_container:
             init_config_options()
+            # NEW: Button to select data source
+            st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
         with about_container:
             st.markdown("### About")
             st.write(
@@ -581,21 +572,30 @@ if st.session_state.get("show_selector", False):
     st.markdown(f"Semantic Model: `{semantic_model_filename}`")
     init_service_metadata()
 
+    # NEW: Display default greeting message if no interaction has occurred
+    if st.session_state.show_greeting and not st.session_state.chat_history:
+        st.markdown("""
+        **Welcome to the Cortex AI Assistant!**  
+        Ask questions about property management, such as occupancy rates, lease details, or tenant payments, and get insights from your data.  
+        Try a sample question from the sidebar or type your own below!
+        """)
+    else:
+        st.session_state.show_greeting = False
+
     st.sidebar.subheader("Sample Questions")
     sample_questions = [
-    "What is Property Management",
-     "total number of properties currently occupied?",
-"What is the number of properties by occupancy status?",
-"What is the number of properties currently leased?",
-"What are the supplier payments compared to customer billing by month?",
-"What is the total number of suppliers?",
-"What is the average supplier payment per property?",
-"What are the details of lease execution, commencement, and termination?",
-"What are the customer billing and supplier payment details by location and purpose?",
-"What is the budget recovery by billing purpose?",
-"What are the details of customer billing?",
-"What are the details of supplier payments?",
-
+        "What is Property Management",
+        "total number of properties currently occupied?",
+        "What is the number of properties by occupancy status?",
+        "What is the number of properties currently leased?",
+        "What are the supplier payments compared to customer billing by month?",
+        "What is the total number of suppliers?",
+        "What is the average supplier payment per property?",
+        "What are the details of lease execution, commencement, and termination?",
+        "What are the customer billing and supplier payment details by location and purpose?",
+        "What is the budget recovery by billing purpose?",
+        "What are the details of customer billing?",
+        "What are the details of supplier payments?",
     ]
 
     for message in st.session_state.chat_history:
@@ -616,8 +616,10 @@ if st.session_state.get("show_selector", False):
     for sample in sample_questions:
         if st.sidebar.button(sample, key=sample):
             query = sample
+            st.session_state.show_greeting = False  # Hide greeting on sample question click
 
     if query:
+        st.session_state.show_greeting = False  # Hide greeting on query submission
         st.session_state.chart_x_axis = None
         st.session_state.chart_y_axis = None
         st.session_state.chart_type = "Bar Chart"
@@ -638,7 +640,7 @@ if st.session_state.get("show_selector", False):
         with st.chat_message("assistant"):
             with st.spinner("Generating Response..."):
                 response_placeholder = st.empty()
-                is_structured = is_structured_query(query)
+                is_structured = is_structured_query(query) and st.session_state.data_source == "Database"
                 is_complete = is_complete_query(query)
                 is_summarize = is_summarize_query(query)
                 is_suggestion = is_question_suggestion_query(query)
@@ -647,7 +649,20 @@ if st.session_state.get("show_selector", False):
                 response_content = ""
                 failed_response = False
 
-                if is_greeting or is_suggestion:
+                # NEW: Modified greeting response for "hi"
+                if is_greeting and original_query.lower().strip() == "hi":
+                    response_content = """
+                    Hi! How can I help you?  
+                    The **Property Management module** enables you to analyze data related to properties, leases, tenants, rent, and occupancy metrics. Ask about occupancy rates, lease terms, tenant payments, or supplier details to get started!
+                    """
+                    with response_placeholder:
+                        st.write_stream(stream_text(response_content))
+                        st.markdown(response_content, unsafe_allow_html=True)
+                    assistant_response["content"] = response_content
+                    st.session_state.messages.append({"role": "assistant", "content": response_content})
+                    st.session_state.last_suggestions = sample_questions[:5]
+
+                elif is_greeting or is_suggestion:
                     greeting = original_query.lower().split()[0]
                     if greeting not in ["hi", "hello", "hey", "greet"]:
                         greeting = "hello"
@@ -691,7 +706,7 @@ if st.session_state.get("show_selector", False):
                         failed_response = True
                         assistant_response["content"] = response_content
 
-                elif is_structured:
+                elif st.session_state.data_source == "Database" and is_structured:
                     response = snowflake_api_call(query, is_structured=True)
                     sql, _ = process_sse_response(response, is_structured=True)
                     if sql:
@@ -737,7 +752,7 @@ if st.session_state.get("show_selector", False):
                         failed_response = True
                         assistant_response["content"] = response_content
 
-                else:
+                elif st.session_state.data_source == "Document":
                     response = snowflake_api_call(query, is_structured=False)
                     _, search_results = process_sse_response(response, is_structured=False)
                     if search_results:
@@ -761,6 +776,14 @@ if st.session_state.get("show_selector", False):
                         response_content = ""
                         failed_response = True
                         assistant_response["content"] = response_content
+
+                else:
+                    response_content = "Please select a data source to proceed with your query."
+                    with response_placeholder:
+                        st.write_stream(stream_text(response_content))
+                        st.markdown(response_content, unsafe_allow_html=True)
+                    assistant_response["content"] = response_content
+                    st.session_state.messages.append({"role": "assistant", "content": response_content})
 
                 if failed_response:
                     suggestions = suggest_sample_questions(query)
