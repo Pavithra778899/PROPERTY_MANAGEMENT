@@ -5,11 +5,13 @@ import requests
 import snowflake.connector
 import pandas as pd
 from snowflake.snowpark import Session
+from snowflake.core import Root
 from typing import Any, Dict, List, Optional, Tuple
-import plotly.express as px  # Added for interactive visualizations
+import plotly.express as px
+import time
 
 # Snowflake/Cortex Configuration
-HOST = "GBJYVCT-LSB50763.snowflakecomputing.com"
+HOST = "bnkzyio-ljb86662.snowflakecomputing.com"
 DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
@@ -257,7 +259,7 @@ if not st.session_state.authenticated:
             conn = snowflake.connector.connect(
                 user=st.session_state.username,
                 password=st.session_state.password,
-                account="GBJYVCT-LSB50763",
+                account="bnkzyio-ljb86662",
                 host=HOST,
                 port=443,
                 warehouse="COMPUTE_WH",
