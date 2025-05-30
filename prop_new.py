@@ -252,7 +252,7 @@ def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
     except Exception as e:
         st.error(f"❌ Failed to generate chart: {str(e)}")
         if st.session_state.debug_mode:
-            with st.sidebar.exp quartet="Chart Error"):
+            with st.sidebar.exp quartet="Chart Error")
                 st.error(f"Details: {str(e)}")
 
 def query_cortex_search_service(query):
