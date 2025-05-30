@@ -465,11 +465,11 @@ else:
         except Exception as e:
             st.error(f"❌ Failed to generate sample questions: {str(e)}")
             return [
-                "What is the total award budget posted by date?",
-                "Which awards have the highest encumbrances in the current quarter?",
-                "What is the total amount of award encumbrances approved this month?",
-                "What is the date-wise breakdown of award budgets?",
-                "Which awards have pending encumbrances for more than two weeks?"
+                "Which lease applications are pending?",
+            "What’s the total rental income by property?",
+            "Which tenants have delayed move-ins?",
+            "What’s the average lease approval time?",
+            "Which manager signed the most leases?"
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
@@ -609,19 +609,18 @@ else:
         if st.session_state.get("show_sample_questions", False):
             st.markdown("### Sample Questions")
             sample_questions = [
-                "What is the posted budget for awards 41001, 41002, 41003, 41005, 41007, and 41018 by date?",
-                "Give me date wise award breakdowns",
-                "Give me award breakdowns",
-                "Give me date wise award budget, actual award posted, award encumbrance posted, award encumbrance approved",
-                "What is the task actual posted by award name?",
-                "What is the award budget posted by date for these awards?",
-                "What is the total award encumbrance posted for these awards?",
-                "What is the total amount of award encumbrances approved?",
-                "What is the total actual award posted for these awards?",
-                "what is the award budget posted?",
-                "what is this document about",
-                "Subject areas",
-                "explain five layers in High level Architecture"
+                "What is Property Management",
+        "Total number of properties currently occupied?",
+        "What is the number of properties by occupancy status?",
+        "What is the number of properties currently leased?",
+        "What are the supplier payments compared to customer billing by month?",
+        "What is the total number of suppliers?",
+        "What is the average supplier payment per property?",
+        "What are the details of lease execution, commencement, and termination?",
+        "What are the customer billing and supplier payment details by location and purpose?",
+        "What is the budget recovery by billing purpose?",
+        "What are the details of customer billing?",
+        "What are the details of supplier payments?"
             ]
             for sample in sample_questions:
                 if st.button(sample, key=f"sidebar_{sample}"):
@@ -672,7 +671,7 @@ else:
     init_service_metadata()
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
-        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with grant data analysis, summaries, and answers — simply type your question to get started.")
+        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property management. Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started! — simply type your question to get started.")
     else:
         st.session_state.show_greeting = False
 
@@ -737,8 +736,8 @@ else:
 
                     Here are some questions you can try:
 
-                    What is the posted budget for awards 41001, 41002, 41003, 41005, 41007, and 41018 by date?
-                    Give me date-wise award breakdowns.
+                    Total number of properties currently occupied?
+                    the total number of suppliers by state?.
                     What is this document about?
                     List all subject areas.
                     Feel free to ask anything, or pick one of the suggested questions to get started!
@@ -749,8 +748,8 @@ else:
                     assistant_response["content"] = response_content
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
                     st.session_state.last_suggestions = [
-                        "What is the posted budget for awards 41001, 41002, 41003, 41005, 41007, and 41018 by date?",
-                        "Give me date wise award breakdowns",
+                        "What is the average supplier payment per property",
+                        "What are the details of lease execution, commencement, and termination",
                         "What is this document about",
                         "Subject areas"
                     ]
@@ -760,10 +759,10 @@ else:
                     if greeting not in ["hi", "hello", "hey", "greet"]:
                         greeting = "hello"
                     response_content = (
-                        f"Hello! Welcome to the GRANTS AI Assistant! I'm here to help you explore and analyze grant-related data, answer questions about awards, budgets, and more, or provide insights from documents.\n\n"
+                        f"Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze Property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency from documents.\n\n"
                         "Here are some questions you can try:\n\n"
-                        "What is the posted budget for awards 41001, 41002, 41003, 41005, 41007, and 41018 by date?\n"
-                        "Give me date-wise award breakdowns.\n"
+                        "Total number of properties currently occupied?\n"
+                        "the total number of suppliers.\n"
                         "What is this document about?\n"
                         "List all subject areas.\n\n"
                         "Feel free to ask anything, or pick one of the suggested questions to get started!"
@@ -773,8 +772,8 @@ else:
                         st.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.last_suggestions = [
-                        "What is the posted budget for awards 41001, 41002, 41003, 41005, 41007, and 41018 by date?",
-                        "Give me date wise award breakdowns",
+                        "Total number of properties currently occupied?",
+                        "What are the details of lease execution, commencement, and termination",
                         "What is this document about",
                         "Subject areas"
                     ]
