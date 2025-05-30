@@ -443,11 +443,8 @@ else:
     def suggest_sample_questions(query: str) -> List[str]:
         try:
             prompt = (
-                f"The user asked: '{query}'. This question may be ambiguous or unclear in the context of a business-facing grants analytics assistant. "
-                f"Generate 3–5 clear, concise sample questions related to grants, awards, budgets, or encumbrances. "
-                f"The questions should be easy for a business user to understand and answerable using grants data such as award budgets, encumbrances, or dates. "
-                f"Format as a numbered list. Example format:\n1. What is the total award budget posted by date?\n2. Which awards have the highest encumbrances?"
-            )
+                f"The user asked for: '{query}'. Generate 3–5 clear, concise sample questions related to properties, leases, tenants, rent, or occupancy metrics. "
+            f"Format as a numbered list."            )
             response = complete(st.session_state.model_name, prompt)
             if response:
                 questions = []
@@ -459,11 +456,11 @@ else:
                 return questions[:5]
             else:
                 return [
-                    "What is the total award budget posted by date?",
-                    "Which awards have the highest encumbrances in the current quarter?",
-                    "What is the total amount of award encumbrances approved this month?",
-                    "What is the date-wise breakdown of award budgets?",
-                    "Which awards have pending encumbrances for more than two weeks?"
+                "Which properties have the highest occupancy rates?",
+                "What is the average rent collected per tenant?",
+                "Which leases expire in the next 30 days?",
+                "What’s the total rental income by property?",
+                "Which tenants have pending rent payments?"
                 ]
         except Exception as e:
             st.error(f"❌ Failed to generate sample questions: {str(e)}")
