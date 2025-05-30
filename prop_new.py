@@ -493,13 +493,13 @@ def is_summarize_query(query: str):
 
 def is_question_suggestion_query(query: str):
     suggestion_patterns = [
-        r'\b(what|which|how)\b.*\b(questions|type of questions|queries)\b.*\b(ask|can i ask|pose)\b)',
+        r'\b(what|which|how)\b.*\b(questions|type of questions|queries)\b.*\b(ask|can i ask|pose)\b',
         r'\b(give me|show me|list)\b.*\b(questions|examples|sample questions)\b'
     ]
     return any(re.search(pattern, query.lower()) for pattern in suggestion_patterns)
 
 def is_greeting_query(query: str):
-    greeting_patterns = [r'^\s* (hello|hi|hey|greet)\b$', r'^\s*(hello|hi|hey|greet)\b\s.*$']
+    greeting_patterns = [r'^\b(hello|hi|hey|greet)\b$', r'^\b(hello|hi|hey,greet)\b\s.*$']
     return any(re.search(pattern, query.lower()) for pattern in greeting_patterns)
 
 def is_maintenance_query(query: str):
@@ -512,7 +512,7 @@ def summarize_unstructured_answer(answer):
 def suggest_sample_questions(query: str) -> List[str]:
     try:
         prompt = (
-            f"The user asked for: '{query}'. Generate 3–5 clear, concise sample questions related to properties, leases, tenants, rent, or occupancy metrics. "
+            f"The user asked: '{query}'. Generate 3–5 clear, concise sample questions related to properties, leases, tenants, rent, or occupancy metrics. "
             f"Format as a numbered list."
         )
         response = complete(st.session_state.model_name, prompt)
@@ -533,7 +533,7 @@ def suggest_sample_questions(query: str) -> List[str]:
                 "Which tenants have pending rent payments?"
             ]
     except Exception as e:
-        st.error(f"Failed to generate sample questions: {str(e)}")
+        st.error(f"❌ Failed to generate sample questions: {str(e)}")
         return [
             "Which lease applications are pending?",
             "What’s the total rental income by property?",
@@ -550,7 +550,7 @@ if not st.session_state.authenticated:
     st.session_state.password = st.text_input("Password:", type="password")
     if st.button("Login"):
         try:
-            connection = snowflake.connector.connect(
+            conn = snowflake.connector.connect(
                 user=st.session_state.username,
                 password=st.session_state.password,
                 account="GBJYVCT-LSB50763",
@@ -561,16 +561,16 @@ if not st.session_state.authenticated:
                 database=DATABASE,
                 schema=SCHEMA,
             )
-            st.session_state.CONN = connection
-            snowpark_session = Session.builder.configs({"connection": connection}).create()
+            st.session_state.CONN = conn
+            snowpark_session = Session.builder.configs({"connection": conn}).create()
             st.session_state.snowpark_session = snowpark_session
-            with connection.cursor() as cur:
+            with conn.cursor() as cur:
                 cur.execute(f"USE DATABASE {DATABASE}")
                 cur.execute(f"USE SCHEMA {SCHEMA}")
                 cur.execute("ALTER SESSION SET TIMEZONE = 'UTC'")
                 cur.execute("ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = TRUE")
             st.session_state.authenticated = True
-            st.success("Successful login success!! 🏠")
+            st.success("Logged in successfully! 🏠")
             st.rerun()
         except Exception as e:
             st.error(f"Login failed: {str(e)}")
@@ -591,8 +591,8 @@ else:
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
         st.markdown(f"""
-        ##{random.choice(GREETINGS)}
-        Ask about occupancy rates, lease details, rent payments, or submit a maintenance request!
+        **{random.choice(GREETINGS)}**  
+        Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about occupancy rates, lease details, rent payments, or submit a maintenance request!
         """)
 
     # Sample Questions in Sidebar
@@ -609,7 +609,7 @@ else:
         "What is the budget recovery by billing purpose?",
         "What are the details of customer billing?",
         "What are the details of supplier payments?",
-        ]
+    ]
     with st.sidebar:
         st.markdown("### Sample Questions")
         for sample in sample_questions:
@@ -621,14 +621,14 @@ else:
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"], unsafe_allow_html=True)
-            if message["role"] == "assistant" and "results" in message and message["results"]:
+            if message["role"] == "assistant" and "results" in message and message["results"] is not None:
                 if message.get("sql"):
                     with st.expander("View SQL Query", expanded=False):
                         st.code(message["sql"], language="sql")
-                st.markdown(f"##{Query Results ({len(message['results'])} rows):}")
+                st.markdown(f"**Query Results ({len(message['results'])} rows):**")
                 st.dataframe(message["results"])
                 if not message["results"].empty and len(message["results"].columns) >= 2:
-                    st.markdown("##📈 Visualization:")
+                    st.markdown("**📈 Visualization:**")
                     display_chart_tab(message["results"], prefix=f"chart_{hash(message['content'])}", query=message.get("query", ""))
 
     query = st.chat_input("Ask your question...")
@@ -668,11 +668,10 @@ else:
 
                 if is_greeting and original_query.lower().strip() == "hi":
                     response_content = f"""
-                    {get_tone(original_query)}
+                    {get_tone(original_query)}  
                     Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started!
                     """
-                    response_placeholder.write(response_content)
-                    st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
                     st.session_state.last_suggestions = suggest_sample_questions(query)
@@ -686,8 +685,7 @@ else:
                     for i, q in enumerate(selected_questions, 1):
                         response_content += f"{i}. {q}\n"
                     response_content += "\nFeel free to ask any of these or your own question!"
-                    response_placeholder.write(response_content)
-                    st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.last_suggestions = selected_questions
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
@@ -695,9 +693,8 @@ else:
                 elif is_complete:
                     response = create_prompt(query)
                     if response:
-                        response_content = f"**{get_tone(query)}**n\{response}\}"
-                        response_placeholder.markdown(response_content)
-                        st.markdown(response_content, unsafe_allow_html=True)
+                        response_content = f"**{get_tone(query)}**\n{response}"
+                        response_placeholder.markdown(response_content, unsafe_allow_html=True)
                         assistant_response["content"] = response_content
                         st.session_state.messages.append({"role": "assistant", "content": response_content})
                     else:
@@ -709,8 +706,7 @@ else:
                     summary = summarize(query)
                     if summary:
                         response_content = f"**{get_tone(query)}**\n**Summary:**\n{summary}"
-                        response_placeholder.markdown(response_content)
-                        st.markdown(response_content, unsafe_allow_html=True)
+                        response_placeholder.markdown(response_content, unsafe_allow_html=True)
                         assistant_response["content"] = response_content
                         st.session_state.messages.append({"role": "assistant", "content": response_content})
                     else:
@@ -721,17 +717,16 @@ else:
                 elif is_maintenance:
                     with st.form("maintenance_form"):
                         request = st.text_area("Describe your maintenance issue:")
-                        if st.form_submit_button("submit Request"):
+                        if st.form_submit_button("Submit Request"):
                             try:
                                 session.sql(
                                     "INSERT INTO maintenance_requests (tenant_id, request, status, timestamp) VALUES (?, ?, 'Pending', CURRENT_TIMESTAMP)",
-                                    params=[(st.session_state.tenant_id, request]
+                                    params=[st.session_state.tenant_id, request]
                                 ).collect()
-                                response_content = f"**{get_tone(query)}**\nRequest submitted! 🛠️ Our team will jump on it faster than you can say 'fixed'!"
+                                response_content = f"**{get_tone(query)}**\nRequest submitted! 🛠️ Our team will jump on it faster than you can say 'fixed!'"
                             except Exception as e:
                                 response_content = f"**{get_tone(query)}**\nOops, something broke! 😅 Try again or contact support."
-                            response_placeholder.markdown(response_content)
-                            st.markdown(response_content, unsafe_allow_html=True)
+                            response_placeholder.markdown(response_content, unsafe_allow_html=True)
                             assistant_response["content"] = response_content
                             st.session_state.messages.append({"role": "assistant", "content": response_content})
 
@@ -749,8 +744,7 @@ else:
                             if not summary:
                                 summary = "⚠️ Unable to generate a natural language summary."
                             response_content = f"**{get_tone(query)}**\n{summary}"
-                            response_placeholder.markdown(response_content)
-                            st.markdown(response_content, unsafe_allow_html=True)
+                            response_placeholder.markdown(response_content, unsafe_allow_html=True)
                             if sql:
                                 with st.expander("View SQL Query", expanded=False):
                                     st.code(sql, language="sql")
@@ -789,14 +783,12 @@ else:
                         summary = create_prompt(query)
                         if summary:
                             response_content = f"**{get_tone(query)}**\n**Answer:**\n{summary}"
-                            response_placeholder.markdown(response_content)
-                            st.markdown(response_content, unsafe_allow_html=True)
+                            response_placeholder.markdown(response_content, unsafe_allow_html=True)
                             assistant_response["content"] = response_content
                             st.session_state.messages.append({"role": "assistant", "content": response_content})
                         else:
-                            response_content = f"**{get_tone(query)}**\n**🔍 Key Information (Unsummarized):**n\{summarize_unstructured_answer(raw_result)}\}
-                            response_placeholder.markdown(response_content)
-                            st.markdown(response_content, unsafe_allow_html=True)
+                            response_content = f"**{get_tone(query)}**\n**🔍 Key Information (Unsummarized):**\n{summarize_unstructured_answer(raw_result)}"
+                            response_placeholder.markdown(response_content, unsafe_allow_html=True)
                             assistant_response["content"] = response_content
                             st.session_state.messages.append({"role": "assistant", "content": response_content})
                     else:
@@ -806,19 +798,17 @@ else:
 
                 else:
                     response_content = f"**{get_tone(query)}**\nPlease select a data source to proceed with your query."
-                    response_placeholder.markdown(response_content)
-                    st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
 
                 if failed_response:
                     suggestions = suggest_sample_questions(query)
-                    response_content = f"**{get_tone(query)}**\nI’m not sure about your question. 😊 Here are some property management questions you can ask:\n\n"
+                    response_content = f"**{get_tone(query)}**\nI’m not sure about your question. Here are some property management questions you can ask:\n\n"
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"{i}. {suggestion}\n"
                     response_content += "\nTry one of these or rephrase your question!"
-                    response_placeholder.markdown(response_content)
-                    st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.last_suggestions = suggestions
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
