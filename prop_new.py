@@ -89,6 +89,14 @@ if "show_history" not in st.session_state:
     st.session_state.show_history = False
 if "query" not in st.session_state:
     st.session_state.query = None
+if "previous_query" not in st.session_state:
+    st.session_state.previous_query = None
+if "previous_sql" not in st.session_state:
+    st.session_state.previous_sql = None
+if "previous_results" not in st.session_state:
+    st.session_state.previous_results = None
+if "show_sample_questions" not in st.session_state:
+    st.session_state.show_sample_questions = False
 
 # Hide Streamlit branding and prevent chat history shading
 st.markdown("""
@@ -106,6 +114,22 @@ def stream_text(text: str, chunk_size: int = 2, delay: float = 0.04):
         yield text[i:i + chunk_size]
         time.sleep(delay)
 
+def submit_maintenance_request(property_id: str, tenant_name: str, issue_description: str):
+    try:
+        # Generate a unique request ID by counting existing requests
+        request_count = session.sql("SELECT COUNT(*) AS CNT FROM MAINTENANCE_REQUESTS").collect()[0]["CNT"]
+        request_id = request_count + 1
+
+        # Insert the maintenance request into the table
+        insert_query = f"""
+        INSERT INTO MAINTENANCE_REQUESTS (REQUEST_ID, PROPERTY_ID, TENANT_NAME, ISSUE_DESCRIPTION, SUBMITTED_AT, STATUS)
+        VALUES ({request_id}, '{property_id}', '{tenant_name}', '{issue_description}', CURRENT_TIMESTAMP(), 'PENDING')
+        """
+        session.sql(insert_query).collect()
+        return True, f"Maintenance request submitted successfully! Request ID: {request_id}"
+    except Exception as e:
+        return False, f"❌ Failed to submit maintenance request: {str(e)}"
+
 def start_new_conversation():
     st.session_state.chat_history = []
     st.session_state.messages = []
@@ -121,23 +145,33 @@ def start_new_conversation():
     st.session_state.show_greeting = True
     st.session_state.query = None
     st.session_state.show_history = False  # Reset history toggle
+    st.session_state.previous_query = None
+    st.session_state.previous_sql = None
+    st.session_state.previous_results = None
     st.rerun()
 
 def init_service_metadata():
     if not st.session_state.service_metadata:
         try:
+            # Use quoted identifiers to handle case-sensitivity or special characters
             services = session.sql("SHOW CORTEX SEARCH SERVICES;").collect()
             service_metadata = []
+            target_service = CORTEX_SEARCH_SERVICES.strip('"')  # Remove quotes for comparison
             if services:
                 for s in services:
                     svc_name = s["name"]
-                    if svc_name == CORTEX_SEARCH_SERVICES:
+                    if svc_name.lower() == target_service.lower():  # Case-insensitive comparison
                         svc_search_col = session.sql(
-                            f"DESC CORTEX SEARCH SERVICE {svc_name};"
-                        ).collect()[0]["search_column"]
-                        service_metadata.append(
-                            {"name": svc_name, "search_column": svc_search_col}
-                        )
+                            f"DESC CORTEX SEARCH SERVICE {CORTEX_SEARCH_SERVICES};"
+                        ).collect()
+                        if svc_search_col:
+                            service_metadata.append(
+                                {"name": svc_name, "search_column": svc_search_col[0]["search_column"]}
+                            )
+                        else:
+                            st.error(f"❌ Cortex Search Service {CORTEX_SEARCH_SERVICES} exists but cannot be described.")
+            if not service_metadata:
+                st.error(f"❌ Cortex Search Service {CORTEX_SEARCH_SERVICES} not found. Please verify the service name.")
             st.session_state.service_metadata = service_metadata or [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
         except Exception as e:
             st.error(f"❌ Failed to initialize Cortex Search service metadata: {str(e)}")
@@ -150,10 +184,12 @@ def query_cortex_search_service(query):
     try:
         db, schema = session.get_current_database(), session.get_current_schema()
         root = Root(session)
+        # Ensure the service name is properly formatted
+        service_name = st.session_state.selected_cortex_search_service
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services[st.session_state.selected_cortex_search_service]
+            .cortex_search_services[service_name]
         )
         context_documents = cortex_search_service.search(
             query, columns=[], limit=st.session_state.num_retrieved_chunks
@@ -161,7 +197,7 @@ def query_cortex_search_service(query):
         results = context_documents.results
         service_metadata = st.session_state.service_metadata
         search_col = [s["search_column"] for s in service_metadata
-                      if s["name"] == st.session_state.selected_cortex_search_service][0]
+                      if s["name"].lower() == service_name.lower()][0]
         context_str = ""
         for i, r in enumerate(results):
             context_str += f"Context document {i+1}: {r[search_col]} \n" + "\n"
@@ -182,8 +218,11 @@ def make_chat_history_summary(chat_history, question):
     chat_history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history])
     prompt = f"""
         [INST]
-        Based on the chat history below and the question, generate a query that extends the question
-        with the chat history provided. The query should be in natural language.
+        You are a conversational AI assistant. Based on the chat history below and the current question, generate a single, clear, and concise query that combines the context of the chat history with the current question. The resulting query should be in natural language and should reflect the user's intent in the conversational flow. Ensure the query is standalone and can be understood without needing to refer back to the chat history.
+
+        For example:
+        - If the chat history contains "user: Total number of properties currently occupied?" and the current question is "by state", the resulting query should be "What is the total number of properties currently occupied by state?"
+
         Answer with only the query. Do not add any explanation.
 
         <chat_history>
@@ -196,7 +235,7 @@ def make_chat_history_summary(chat_history, question):
     """
     summary = complete(st.session_state.model_name, prompt)
     if st.session_state.debug_mode:
-        st.sidebar.text_area("Chat history summary", summary.replace("$", "\$"), height=150)
+        st.sidebar.text_area("Chat History Summary", summary.replace("$", "\$"), height=150)
     return summary
 
 def create_prompt(user_question):
@@ -628,6 +667,22 @@ else:
                     st.session_state.query = sample
                     st.session_state.show_greeting = False
 
+        # Maintenance Request Submission
+        with st.expander("Submit Maintenance Request"):
+            st.markdown("### Submit a Maintenance Request")
+            property_id = st.text_input("Property ID", key="maint_property_id")
+            tenant_name = st.text_input("Tenant Name", key="maint_tenant_name")
+            issue_description = st.text_area("Issue Description", key="maint_issue_description")
+            if st.button("Submit Request", key="submit_maintenance_request"):
+                if not property_id or not tenant_name or not issue_description:
+                    st.error("❌ Please fill in all fields to submit a maintenance request.")
+                else:
+                    success, message = submit_maintenance_request(property_id, tenant_name, issue_description)
+                    if success:
+                        st.success(message)
+                    else:
+                        st.error(message)
+
         # Divider
         st.markdown("---")
 
@@ -669,6 +724,8 @@ else:
     st.title("Cortex AI Assistant by DiLytics")
     semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
     st.markdown(f"Semantic Model: `{semantic_model_filename}`")
+    # Display the date and time
+    st.markdown("**Today's Date and Time:** 05:09 PM IST on Friday, May 30, 2025")
     init_service_metadata()
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
@@ -711,6 +768,25 @@ else:
                     query = original_query
             except ValueError:
                 query = original_query
+
+        # Check if this is a follow-up question
+        is_follow_up = False
+        follow_up_patterns = [
+            r'^\bby\b\s+\w+$',  # e.g., "by state"
+            r'^\bgroup by\b\s+\w+$'  # e.g., "group by state"
+        ]
+        if any(re.search(pattern, query.lower()) for pattern in follow_up_patterns) and st.session_state.previous_query:
+            is_follow_up = True
+
+        # If this is a follow-up and chat history is enabled, use the chat history to generate a combined query
+        combined_query = query
+        if st.session_state.use_chat_history:
+            chat_history = get_chat_history()
+            if chat_history and is_follow_up:
+                combined_query = make_chat_history_summary(chat_history, query)
+                if st.session_state.debug_mode:
+                    st.sidebar.text_area("Combined Query", combined_query, height=100)
+
         st.session_state.chat_history.append({"role": "user", "content": original_query})
         st.session_state.messages.append({"role": "user", "content": original_query})
         with st.chat_message("user"):
@@ -720,14 +796,14 @@ else:
                 response_placeholder = st.empty()
                 if st.session_state.data_source not in ["Database", "Document"]:
                     st.session_state.data_source = "Database"
-                is_structured = is_structured_query(query) and st.session_state.data_source == "Database"
-                is_complete = is_complete_query(query)
-                is_summarize = is_summarize_query(query)
-                is_suggestion = is_question_suggestion_query(query)
-                is_greeting = is_greeting_query(query)
+                is_structured = is_structured_query(combined_query) and st.session_state.data_source == "Database"
+                is_complete = is_complete_query(combined_query)
+                is_summarize = is_summarize_query(combined_query)
+                is_suggestion = is_question_suggestion_query(combined_query)
+                is_greeting = is_greeting_query(combined_query)
                 if st.session_state.debug_mode:
-                    st.sidebar.text_area("Debug Info", f"is_structured: {is_structured}\nData Source: {st.session_state.data_source}", height=100)
-                assistant_response = {"role": "assistant", "content": "", "query": query}
+                    st.sidebar.text_area("Debug Info", f"is_structured: {is_structured}\nData Source: {st.session_state.data_source}\nis_follow_up: {is_follow_up}", height=150)
+                assistant_response = {"role": "assistant", "content": "", "query": combined_query}
                 response_content = ""
                 failed_response = False
 
@@ -786,7 +862,7 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
 
                 elif is_complete:
-                    response = create_prompt(query)
+                    response = create_prompt(combined_query)
                     if response:
                         response_content = f"**✍️ Generated Response:**\n{response}"
                         with response_placeholder:
@@ -800,7 +876,7 @@ else:
                         assistant_response["content"] = response_content
 
                 elif is_summarize:
-                    summary = summarize(query)
+                    summary = summarize(combined_query)
                     if summary:
                         response_content = f"**Summary:**\n{summary}"
                         with response_placeholder:
@@ -814,7 +890,7 @@ else:
                         assistant_response["content"] = response_content
 
                 elif st.session_state.data_source == "Database" and is_structured:
-                    response = snowflake_api_call(query, is_structured=True)
+                    response = snowflake_api_call(combined_query, is_structured=True)
                     sql, _ = process_sse_response(response, is_structured=True)
                     if sql:
                         if st.session_state.debug_mode:
@@ -822,7 +898,7 @@ else:
                         results = run_snowflake_query(sql)
                         if results is not None and not results.empty:
                             results_text = results.to_string(index=False)
-                            prompt = f"Provide a concise natural language answer to the query '{query}' using the following data, avoiding phrases like 'Based on the query results':\n\n{results_text}"
+                            prompt = f"Provide a concise natural language answer to the query '{combined_query}' using the following data, avoiding phrases like 'Based on the query results':\n\n{results_text}"
                             summary = complete(st.session_state.model_name, prompt)
                             if not summary:
                                 summary = "⚠️ Unable to generate a natural language summary."
@@ -836,7 +912,7 @@ else:
                             st.dataframe(results)
                             if len(results.columns) >= 2:
                                 st.markdown("**📈 Visualization:**")
-                                display_chart_tab(results, prefix=f"chart_{hash(query)}", query=query)
+                                display_chart_tab(results, prefix=f"chart_{hash(combined_query)}", query=combined_query)
                             assistant_response.update({
                                 "content": response_content,
                                 "sql": sql,
@@ -860,11 +936,11 @@ else:
                         assistant_response["content"] = response_content
 
                 elif st.session_state.data_source == "Document":
-                    response = snowflake_api_call(query, is_structured=False)
+                    response = snowflake_api_call(combined_query, is_structured=False)
                     _, search_results = process_sse_response(response, is_structured=False)
                     if search_results:
                         raw_result = search_results[0]
-                        summary = create_prompt(query)
+                        summary = create_prompt(combined_query)
                         if summary:
                             response_content = f"**Here is the Answer:**\n{summary}"
                             with response_placeholder:
@@ -893,7 +969,7 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
 
                 if failed_response:
-                    suggestions = suggest_sample_questions(query)
+                    suggestions = suggest_sample_questions(combined_query)
                     response_content = "I am not sure about your question. Here are some questions you can ask me:\n\n"
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"{i}. {suggestion}\n"
@@ -906,8 +982,12 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
 
                 st.session_state.chat_history.append(assistant_response)
-                st.session_state.current_query = query
+                st.session_state.current_query = combined_query
                 st.session_state.current_results = assistant_response.get("results")
                 st.session_state.current_sql = assistant_response.get("sql")
                 st.session_state.current_summary = assistant_response.get("summary")
+                # Store the previous query context
+                st.session_state.previous_query = combined_query
+                st.session_state.previous_sql = assistant_response.get("sql")
+                st.session_state.previous_results = assistant_response.get("results")
                 st.session_state.query = None
