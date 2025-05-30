@@ -131,13 +131,14 @@ def init_service_metadata():
             if services:
                 for s in services:
                     svc_name = s["name"]
-                    svc_search_col = session.sql(
-                        f"DESC CORTEX SEARCH SERVICE {svc_name};"
-                    ).collect()[0]["search_column"]
-                    service_metadata.append(
-                        {"name": svc_name, "search_column": svc_search_col}
-                    )
-            st.session_state.service_metadata = service_metadata
+                    if svc_name == CORTEX_SEARCH_SERVICES:
+                        svc_search_col = session.sql(
+                            f"DESC CORTEX SEARCH SERVICE {svc_name};"
+                        ).collect()[0]["search_column"]
+                        service_metadata.append(
+                            {"name": svc_name, "search_column": svc_search_col}
+                        )
+            st.session_state.service_metadata = service_metadata or [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
         except Exception as e:
             st.error(f"❌ Failed to initialize Cortex Search service metadata: {str(e)}")
             st.session_state.service_metadata = [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
@@ -308,9 +309,9 @@ else:
 
     def is_structured_query(query: str):
         structured_patterns = [
-             r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|rejected deliveries?|least|highest|duration|approval)\b',
-        r'\b(vendor|supplier|requisition|purchase order|po|organization|department|buyer|delivery|received|billed|rejected|late|on time|late deliveries?|Suppliers|payment|billing|percentage|list)\b',
-        r'\b(property|tenant|lease|rent|occupancy|maintenance)\b'
+            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|rejected deliveries?|least|highest|duration|approval)\b',
+            r'\b(vendor|supplier|requisition|purchase order|po|organization|department|buyer|delivery|received|billed|rejected|late|on time|late deliveries?|Suppliers|payment|billing|percentage|list)\b',
+            r'\b(property|tenant|lease|rent|occupancy|maintenance)\b'
         ]
         return any(re.search(pattern, query.lower()) for pattern in structured_patterns)
 
@@ -324,7 +325,7 @@ else:
 
     def is_question_suggestion_query(query: str):
         suggestion_patterns = [
-            r'\b(what|which|how)\b.*\b(questions|type of questions|queries)\b.*\b(ask|can i ask|pose)\b',
+            r'\b(what|which|how)\b.*\b(questions|type of questions|queries|information|data|insights)\b.*\b(ask|can i ask|pose|get|available)\b',
             r'\b(give me|show me|list)\b.*\b(questions|examples|sample questions)\b'
         ]
         return any(re.search(pattern, query.lower()) for pattern in suggestion_patterns)
@@ -444,7 +445,8 @@ else:
         try:
             prompt = (
                 f"The user asked for: '{query}'. Generate 3–5 clear, concise sample questions related to properties, leases, tenants, rent, or occupancy metrics. "
-            f"Format as a numbered list."            )
+                f"Format as a numbered list."
+            )
             response = complete(st.session_state.model_name, prompt)
             if response:
                 questions = []
@@ -456,20 +458,20 @@ else:
                 return questions[:5]
             else:
                 return [
-                "Which properties have the highest occupancy rates?",
-                "What is the average rent collected per tenant?",
-                "Which leases expire in the next 30 days?",
-                "What’s the total rental income by property?",
-                "Which tenants have pending rent payments?"
+                    "Which properties have the highest occupancy rates?",
+                    "What is the average rent collected per tenant?",
+                    "Which leases expire in the next 30 days?",
+                    "What’s the total rental income by property?",
+                    "Which tenants have pending rent payments?"
                 ]
         except Exception as e:
             st.error(f"❌ Failed to generate sample questions: {str(e)}")
             return [
                 "Which lease applications are pending?",
-            "What’s the total rental income by property?",
-            "Which tenants have delayed move-ins?",
-            "What’s the average lease approval time?",
-            "Which manager signed the most leases?"
+                "What’s the total rental income by property?",
+                "Which tenants have delayed move-ins?",
+                "What’s the average lease approval time?",
+                "Which manager signed the most leases?"
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
@@ -569,18 +571,17 @@ else:
         # 3. Select Data Source
         st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
 
-        # 4. Select Cortex Search
-        # 5. Service
+        # 4. Select Cortex Search Service
         st.selectbox(
             "Select Cortex Search Service:",
-            [s["name"] for s in st.session_state.service_metadata] or [CORTEX_SEARCH_SERVICES],
+            [CORTEX_SEARCH_SERVICES],
             key="selected_cortex_search_service"
         )
 
-        # 6. Debug
+        # 5. Debug
         st.toggle("Debug", key="debug_mode", value=st.session_state.debug_mode)
 
-        # 7. Use Chat History
+        # 6. Use Chat History
         st.toggle("Use chat history", key="use_chat_history", value=True)
 
         # Advanced Options
@@ -603,24 +604,24 @@ else:
         if st.session_state.debug_mode:
             st.expander("Session State").write(st.session_state)
 
-        # 8. Sample Questions Button
+        # 7. Sample Questions Button
         if st.button("Sample Questions", key="sample_questions_button"):
             st.session_state.show_sample_questions = not st.session_state.get("show_sample_questions", False)
         if st.session_state.get("show_sample_questions", False):
             st.markdown("### Sample Questions")
             sample_questions = [
                 "What is Property Management",
-        "Total number of properties currently occupied?",
-        "What is the number of properties by occupancy status?",
-        "What is the number of properties currently leased?",
-        "What are the supplier payments compared to customer billing by month?",
-        "What is the total number of suppliers?",
-        "What is the average supplier payment per property?",
-        "What are the details of lease execution, commencement, and termination?",
-        "What are the customer billing and supplier payment details by location and purpose?",
-        "What is the budget recovery by billing purpose?",
-        "What are the details of customer billing?",
-        "What are the details of supplier payments?"
+                "Total number of properties currently occupied?",
+                "What is the number of properties by occupancy status?",
+                "What is the number of properties currently leased?",
+                "What are the supplier payments compared to customer billing by month?",
+                "What is the total number of suppliers?",
+                "What is the average supplier payment per property?",
+                "What are the details of lease execution, commencement, and termination?",
+                "What are the customer billing and supplier payment details by location and purpose?",
+                "What is the budget recovery by billing purpose?",
+                "What are the details of customer billing?",
+                "What are the details of supplier payments?"
             ]
             for sample in sample_questions:
                 if st.button(sample, key=f"sidebar_{sample}"):
@@ -732,14 +733,14 @@ else:
 
                 if is_greeting and original_query.lower().strip() == "hi":
                     response_content = """
-                    Hello! Welcome to the GRANTS AI Assistant! I'm here to help you explore and analyze grant-related data, answer questions about awards, budgets, and more, or provide insights from documents.
+                    Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, or provide insights from documents.
 
                     Here are some questions you can try:
 
                     Total number of properties currently occupied?
-                    the total number of suppliers by state?.
-                    What is this document about?
-                    List all subject areas.
+                    What is the number of properties currently leased?
+                    What are the details of lease execution, commencement, and termination?
+                    What is the average supplier payment per property?
                     Feel free to ask anything, or pick one of the suggested questions to get started!
                     """
                     with response_placeholder:
@@ -748,10 +749,10 @@ else:
                     assistant_response["content"] = response_content
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
                     st.session_state.last_suggestions = [
-                        "What is the average supplier payment per property",
-                        "What are the details of lease execution, commencement, and termination",
-                        "What is this document about",
-                        "Subject areas"
+                        "Total number of properties currently occupied?",
+                        "What is the number of properties currently leased?",
+                        "What are the details of lease execution, commencement, and termination?",
+                        "What is the average supplier payment per property?"
                     ]
 
                 elif is_greeting or is_suggestion:
@@ -759,13 +760,18 @@ else:
                     if greeting not in ["hi", "hello", "hey", "greet"]:
                         greeting = "hello"
                     response_content = (
-                        f"Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze Property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency from documents.\n\n"
-                        "Here are some questions you can try:\n\n"
-                        "Total number of properties currently occupied?\n"
-                        "the total number of suppliers.\n"
-                        "What is this document about?\n"
-                        "List all subject areas.\n\n"
-                        "Feel free to ask anything, or pick one of the suggested questions to get started!"
+                        f"Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, or provide insights from documents.\n\n"
+                        "Here are some types of information you can get from me:\n\n"
+                        "1. **Property Metrics**: Information on occupancy rates, number of properties leased, or total rental income by property.\n"
+                        "2. **Lease Details**: Insights into lease execution, commencement, and termination dates.\n"
+                        "3. **Tenant Information**: Details on tenant screening, pending rent payments, or tenant move-ins.\n"
+                        "4. **Financial Insights**: Data on supplier payments, customer billing, budget recovery, or average payments per property.\n"
+                        "5. **Maintenance Requests**: Information on submitting or tracking maintenance requests.\n\n"
+                        "Feel free to ask anything, or try one of these sample questions:\n"
+                        "- Total number of properties currently occupied?\n"
+                        "- What are the details of lease execution, commencement, and termination?\n"
+                        "- What is the average supplier payment per property?\n"
+                        "- Which tenants have pending rent payments?"
                     )
                     with response_placeholder:
                         st.write_stream(stream_text(response_content))
@@ -773,9 +779,9 @@ else:
                     assistant_response["content"] = response_content
                     st.session_state.last_suggestions = [
                         "Total number of properties currently occupied?",
-                        "What are the details of lease execution, commencement, and termination",
-                        "What is this document about",
-                        "Subject areas"
+                        "What are the details of lease execution, commencement, and termination?",
+                        "What is the average supplier payment per property?",
+                        "Which tenants have pending rent payments?"
                     ]
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
 
