@@ -60,47 +60,7 @@ if "authenticated" not in st.session_state:
     st.session_state.data_source = "Database"
     st.session_state.tenant_id = None
     
-# Enhanced UI Styling
-st.markdown("""
-<style>
-#MainMenu, header, footer {visibility: hidden;}
-.stChatMessage.user {
-    background-color: #29B5E8;
-    color: white;
-    border-radius: 10px;
-    padding: 10px;
-    margin: 5px;
-    max-width: 70%;
-    margin-left: auto;
-}
-.stChatMessage.assistant {
-    background-color: #1e1e1e;
-    color: white;
-    border-radius: 10px;
-    padding: 10px;
-    margin: 5px;
-    max-width: 70%;
-    margin-right: auto;
-}
-.stSpinner {
-    color: #29B5E8;
-}
-.stSidebar button {
-    background-color: #29B5E8 !important;
-    color: white !important;
-    border-radius: 5px !important;
-    width: 100% !important;
-    margin: 5px 0 !important;
-}
-.quick-action-button {
-    background-color: #29B5E8 !important;
-    color: white !important;
-    border-radius: 5px !important;
-    padding: 10px !important;
-    text-align: center !important;
-}
-</style>
-""", unsafe_allow_html=True)
+
 
 # Enhanced typing animation (returns a generator)
 def stream_text(text: str, chunk_size: int = 2, delay: float = 0.02):
