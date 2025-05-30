@@ -260,7 +260,18 @@ def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
             with st.sidebar.expander("Chart Error"):
                 st.error(f"Details: {str(e)}")
 
-
+# Updated init_config_options (removed Cortex Search Service selectbox)
+def init_config_options():
+    st.sidebar.radio("Data Source:", ["Database", "Document"], key="data_source")
+    st.sidebar.button("Clear Conversation", on_click=start_new_conversation)
+    with st.sidebar.expander("Advanced Settings"):
+        st.selectbox("Model:", MODELS, key="model_name")
+        st.number_input("Context Chunks", value=100, min_value=1, max_value=400, key="num_retrieved_chunks")
+        st.number_input("Chat History Messages", value=10, min_value=1, max_value=100, key="num_chat_messages")
+        st.toggle("Use Chat History", key="use_chat_history")
+        st.toggle("Debug Mode", key="debug_mode")
+    if st.session_state.debug_mode:
+        st.sidebar.expander("Session State").write(st.session_state)
 # Updated query_cortex_search_service
 def query_cortex_search_service(query):
     try:
