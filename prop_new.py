@@ -144,7 +144,6 @@ def init_service_metadata():
             st.session_state.service_metadata = [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
 
 def init_config_options():
-    # This function is now empty as all elements have been moved to the sidebar directly
     pass
 
 def query_cortex_search_service(query):
@@ -548,11 +547,12 @@ else:
             border: none !important;
             padding: 0.5rem 1rem !important;
         }
-        /* Custom styling for Clear conversation, About, Help & Documentation, and History buttons */
+        /* Custom styling for Clear conversation, About, Help & Documentation, History, and Sample Questions buttons */
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Clear conversation"] > button,
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="About"] > button,
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Help & Documentation"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > button {
+        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > button,
+        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Sample Questions"] > button {
             background-color: #28A745 !important;
             color: white !important;
             font-weight: normal !important;
@@ -561,44 +561,56 @@ else:
         </style>
         """, unsafe_allow_html=True)
 
-        # Logo
+        # 1. Snowflake Logo
         logo_url = "https://www.snowflake.com/wp-content/themes/snowflake/assets/img/logo-blue.svg"
         st.image(logo_url, width=250)
 
-        # First Section: Select Data Source, Config Options, Sample Questions
-        with st.container():
-            # Select Data Source
-            st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
+        # 2. Clear Conversation Button
+        if st.button("Clear conversation", key="clear_conversation_button"):
+            start_new_conversation()
 
-            # Config Options
-            st.selectbox(
-                "Select cortex search service:",
-                [s["name"] for s in st.session_state.service_metadata] or [CORTEX_SEARCH_SERVICES],
-                key="selected_cortex_search_service"
+        # 3. Select Data Source
+        st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
+
+        # 4. Select Cortex Search
+        # 5. Service
+        st.selectbox(
+            "Select Cortex Search Service:",
+            [s["name"] for s in st.session_state.service_metadata] or [CORTEX_SEARCH_SERVICES],
+            key="selected_cortex_search_service"
+        )
+
+        # 6. Debug
+        st.toggle("Debug", key="debug_mode", value=st.session_state.debug_mode)
+
+        # 7. Use Chat History
+        st.toggle("Use chat history", key="use_chat_history", value=True)
+
+        # Advanced Options
+        with st.expander("Advanced options"):
+            st.selectbox("Select model:", MODELS, key="model_name")
+            st.number_input(
+                "Select number of context chunks",
+                value=100,
+                key="num_retrieved_chunks",
+                min_value=1,
+                max_value=400
             )
-            st.toggle("Debug", key="debug_mode", value=st.session_state.debug_mode)
-            st.toggle("Use chat history", key="use_chat_history", value=True)
-            with st.expander("Advanced options"):
-                st.selectbox("Select model:", MODELS, key="model_name")
-                st.number_input(
-                    "Select number of context chunks",
-                    value=100,
-                    key="num_retrieved_chunks",
-                    min_value=1,
-                    max_value=400
-                )
-                st.number_input(
-                    "Select number of messages to use in chat history",
-                    value=10,
-                    key="num_chat_messages",
-                    min_value=1,
-                    max_value=100
-                )
-            if st.session_state.debug_mode:
-                st.expander("Session State").write(st.session_state)
+            st.number_input(
+                "Select number of messages to use in chat history",
+                value=10,
+                key="num_chat_messages",
+                min_value=1,
+                max_value=100
+            )
+        if st.session_state.debug_mode:
+            st.expander("Session State").write(st.session_state)
 
-            # Sample Questions
-            st.subheader("Sample Questions")
+        # 8. Sample Questions Button
+        if st.button("Sample Questions", key="sample_questions_button"):
+            st.session_state.show_sample_questions = not st.session_state.get("show_sample_questions", False)
+        if st.session_state.get("show_sample_questions", False):
+            st.markdown("### Sample Questions")
             sample_questions = [
                 "What is the posted budget for awards 41001, 41002, 41003, 41005, 41007, and 41018 by date?",
                 "Give me date wise award breakdowns",
@@ -622,13 +634,8 @@ else:
         # Divider
         st.markdown("---")
 
-        # Second Section: Clear conversation, History, About, Help & Documentation
+        # History, About, Help & Documentation
         with st.container():
-            # Clear conversation button
-            if st.button("Clear conversation", key="clear_conversation_button"):
-                start_new_conversation()
-
-            # History button and content
             if st.button("History", key="history_button"):
                 toggle_history()
             if st.session_state.show_history:
@@ -642,7 +649,6 @@ else:
                             st.session_state.query = question
                             st.session_state.show_greeting = False
 
-            # About button and content
             if st.button("About", key="about_button"):
                 toggle_about()
             if st.session_state.show_about:
@@ -653,7 +659,6 @@ else:
                     "Simply ask a question below to see relevant answers and visualizations."
                 )
 
-            # Help & Documentation button and content
             if st.button("Help & Documentation", key="help_button"):
                 toggle_help()
             if st.session_state.show_help:
@@ -669,7 +674,6 @@ else:
     st.markdown(f"Semantic Model: `{semantic_model_filename}`")
     init_service_metadata()
 
-    # Welcome Text Under Title
     if st.session_state.show_greeting and not st.session_state.chat_history:
         st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with grant data analysis, summaries, and answers — simply type your question to get started.")
     else:
@@ -687,12 +691,10 @@ else:
                     st.markdown("**📈 Visualization:**")
                     display_chart_tab(message["results"], prefix=f"chart_{hash(message['content'])}", query=message.get("query", ""))
 
-    # Get query from chat input or session state
     chat_input_query = st.chat_input("Ask your question...")
     if chat_input_query:
         st.session_state.query = chat_input_query
 
-    # Process the query (either from chat input, a clicked sample question, or a history question)
     if st.session_state.query:
         query = st.session_state.query
         if query.lower().startswith("no of"):
@@ -719,7 +721,6 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Generating Response..."):
                 response_placeholder = st.empty()
-                # Ensure data_source is set to "Database" if unset or invalid
                 if st.session_state.data_source not in ["Database", "Document"]:
                     st.session_state.data_source = "Database"
                 is_structured = is_structured_query(query) and st.session_state.data_source == "Database"
@@ -727,7 +728,6 @@ else:
                 is_summarize = is_summarize_query(query)
                 is_suggestion = is_question_suggestion_query(query)
                 is_greeting = is_greeting_query(query)
-                # Debugging: Log the values to understand the condition
                 if st.session_state.debug_mode:
                     st.sidebar.text_area("Debug Info", f"is_structured: {is_structured}\nData Source: {st.session_state.data_source}", height=100)
                 assistant_response = {"role": "assistant", "content": "", "query": query}
@@ -908,5 +908,4 @@ else:
                 st.session_state.current_results = assistant_response.get("results")
                 st.session_state.current_sql = assistant_response.get("sql")
                 st.session_state.current_summary = assistant_response.get("summary")
-                # Reset the query after processing to avoid reprocessing on rerun
                 st.session_state.query = None
