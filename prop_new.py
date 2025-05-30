@@ -16,8 +16,8 @@ DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000  # in milliseconds
-CORTEX_SEARCH_SERVICES = "AI.DWH_MART.Grants_search_services"
-SEMANTIC_MODEL = '@"AI"."DWH_MART"."GRANTS"/grantsyaml_27.yaml'
+CORTEX_SEARCH_SERVICES = "AI.DWH_MART.propertymanagement"
+SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management.yaml'
 
 # Model options
 MODELS = [
@@ -308,8 +308,9 @@ else:
 
     def is_structured_query(query: str):
         structured_patterns = [
-            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|least|highest|duration|approval)\b',
-            r'\b(award|budget|posted|encumbrance|date|task|actual|approved|total)\b'
+             r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|rejected deliveries?|least|highest|duration|approval)\b',
+        r'\b(vendor|supplier|requisition|purchase order|po|organization|department|buyer|delivery|received|billed|rejected|late|on time|late deliveries?|Suppliers|payment|billing|percentage|list)\b',
+        r'\b(property|tenant|lease|rent|occupancy|maintenance)\b'
         ]
         return any(re.search(pattern, query.lower()) for pattern in structured_patterns)
 
