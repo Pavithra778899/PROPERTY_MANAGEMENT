@@ -31,7 +31,7 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# Initialize session state
+# Initialize session state (updated)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.username = ""
@@ -49,7 +49,7 @@ if "authenticated" not in st.session_state:
     st.session_state.current_results = None
     st.session_state.current_sql = None
     st.session_state.current_summary = None
-    st.session_state.service_metadata = []
+    st.session_state.service_metadata = [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
     st.session_state.selected_cortex_search_service = CORTEX_SEARCH_SERVICES
     st.session_state.model_name = "mistral-large"
     st.session_state.num_retrieved_chunks = 100
@@ -59,7 +59,7 @@ if "authenticated" not in st.session_state:
     st.session_state.show_greeting = True
     st.session_state.data_source = "Database"
     st.session_state.tenant_id = None
-
+    
 # Enhanced UI Styling
 st.markdown("""
 <style>
@@ -140,29 +140,28 @@ def start_new_conversation():
     st.session_state.tenant_id = None
     st.rerun()
 
+
+# Updated init_service_metadata
 @st.cache_data
 def init_service_metadata():
     try:
-        services = session.sql("SHOW CORTEX SEARCH SERVICES;").collect()
+        services = session.sql(f"SHOW CORTEX SEARCH SERVICES LIKE '{CORTEX_SEARCH_SERVICES}';").collect()
         service_metadata = []
         if services:
-            for s in services:
-                svc_name = s["name"]
-                svc_search_col = session.sql(
-                    f"DESC CORTEX SEARCH SERVICE {svc_name};"
-                ).collect()[0]["search_column"]
-                service_metadata.append({"name": svc_name, "search_column": svc_search_col})
+            svc_name = services[0]["name"]
+            svc_search_col = session.sql(
+                f"DESC CORTEX SEARCH SERVICE {svc_name};"
+            ).collect()[0]["search_column"]
+            service_metadata.append({"name": svc_name, "search_column": svc_search_col})
+        else:
+            service_metadata = [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
         return service_metadata
     except Exception as e:
         st.error(f"❌ Failed to initialize Cortex Search service metadata: {str(e)}")
         return [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
-
+        
+# Updated init_config_options (removed Cortex Search Service selectbox)
 def init_config_options():
-    st.sidebar.selectbox(
-        "Cortex Search Service:",
-        [s["name"] for s in st.session_state.service_metadata],
-        key="selected_cortex_search_service"
-    )
     st.sidebar.radio("Data Source:", ["Database", "Document"], key="data_source")
     st.sidebar.button("Clear Conversation", on_click=start_new_conversation)
     with st.sidebar.expander("Advanced Settings"):
@@ -173,7 +172,8 @@ def init_config_options():
         st.toggle("Debug Mode", key="debug_mode")
     if st.session_state.debug_mode:
         st.sidebar.expander("Session State").write(st.session_state)
-
+        
+# Updated query_cortex_search_service
 def query_cortex_search_service(query):
     try:
         db, schema = session.get_current_database(), session.get_current_schema()
@@ -181,14 +181,13 @@ def query_cortex_search_service(query):
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services[st.session_state.selected_cortex_search_service]
+            .cortex_search_services[CORTEX_SEARCH_SERVICES]
         )
         context_documents = cortex_search_service.search(
             query, columns=[], limit=st.session_state.num_retrieved_chunks
         )
         results = context_documents.results
-        search_col = [s["search_column"] for s in st.session_state.service_metadata
-                      if s["name"] == st.session_state.selected_cortex_search_service][0]
+        search_col = st.session_state.service_metadata[0]["search_column"]
         context_str = ""
         for i, r in enumerate(results):
             context_str += f"Context document {i+1}: {r[search_col]} \n" + "\n"
