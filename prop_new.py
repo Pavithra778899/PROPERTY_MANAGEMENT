@@ -61,7 +61,47 @@ if "authenticated" not in st.session_state:
     st.session_state.tenant_id = None
     
 
-
+# Enhanced UI Styling
+st.markdown("""
+<style>
+#MainMenu, header, footer {visibility: hidden;}
+.stChatMessage.user {
+    background-color: #29B5E8;
+    color: white;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 5px;
+    max-width: 70%;
+    margin-left: auto;
+}
+.stChatMessage.assistant {
+    background-color: #1e1e1e;
+    color: white;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 5px;
+    max-width: 70%;
+    margin-right: auto;
+}
+.stSpinner {
+    color: #29B5E8;
+}
+.stSidebar button {
+    background-color: #29B5E8 !important;
+    color: white !important;
+    border-radius: 5px !important;
+    width: 100% !important;
+    margin: 5px 0 !important;
+}
+.quick-action-button {
+    background-color: #29B5E8 !important;
+    color: white !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+    text-align: center !important;
+}
+</style>
+""", unsafe_allow_html=True)
 # Enhanced typing animation (returns a generator)
 def stream_text(text: str, chunk_size: int = 2, delay: float = 0.02):
     for i in range(0, len(text), chunk_size):
@@ -220,121 +260,7 @@ def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
             with st.sidebar.expander("Chart Error"):
                 st.error(f"Details: {str(e)}")
 
-# Enhanced Sidebar
-with st.sidebar:
-    st.markdown("""
-    <style>
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e1e1e 0%, #2a2a2a 100%);
-        padding: 1rem;
-    }
-    [data-testid="stSidebar"] [data-testid="stButton"] > button {
-        background: linear-gradient(90deg, #29B5E8, #10B981) !important;
-        color: white !important;
-        font-weight: bold !important;
-        width: 100% !important;
-        border-radius: 8px !important;
-        margin: 0.5rem 0 !important;
-        border: none !important;
-        padding: 0.75rem !important;
-        transition: transform 0.2s;
-    }
-    [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
-        transform: scale(1.05);
-    }
-    .sidebar-divider {
-        border-top: 1px solid #29B5E8;
-        margin: 1rem 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
-    # Logo
-    logo_container = st.container()
-    with logo_container:
-        # Property management-themed icon (replace with your logo URL if available)
-        st.image("https://img.icons8.com/color/96/000000/apartment.png", width=100)
-        st.markdown("<h3 style='color: #29B5E8; text-align: center;'>Property Management AI</h3>", unsafe_allow_html=True)
-
-    # Settings
-    settings_container = st.container()
-    with settings_container:
-        st.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
-        st.markdown("### 🏠 Settings")
-        st.radio(
-            "Select Data Source:",
-            ["Database", "Document"],
-            key="data_source",
-            help="Choose 'Database' for SQL queries or 'Document' for text search."
-        )
-        with st.expander("Advanced Settings", expanded=False):
-            st.selectbox(
-                "Model:",
-                MODELS,
-                key="model_name",
-                help="Select the AI model for query processing."
-            )
-            st.number_input(
-                "Context Chunks",
-                value=100,
-                min_value=1,
-                max_value=400,
-                key="num_retrieved_chunks",
-                help="Number of document chunks to retrieve."
-            )
-            st.number_input(
-                "Chat History Messages",
-                value=10,
-                min_value=1,
-                max_value=100,
-                key="num_chat_messages",
-                help="Number of past messages to include in context."
-            )
-            st.toggle("Use Chat History", key="use_chat_history", help="Include chat history in queries.")
-            st.toggle("Debug Mode", key="debug_mode", help="Show debug information.")
-        if st.button("Reset Settings", key="reset_settings", help="Revert to default settings"):
-            st.session_state.data_source = "Database"
-            st.session_state.model_name = "mistral-large"
-            st.session_state.num_retrieved_chunks = 100
-            st.session_state.num_chat_messages = 10
-            st.session_state.use_chat_history = True
-            st.session_state.debug_mode = False
-            st.rerun()
-
-    # About
-    about_container = st.container()
-    with about_container:
-        st.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
-        st.markdown("### ℹ️ About")
-        st.markdown("""
-        Your AI-powered assistant for property management! 🏠  
-        Ask about leases, tenants, rent, or maintenance, and get insights with visualizations. Powered by Snowflake Cortex for seamless data analysis.
-        """)
-
-    # Help
-    help_container = st.container()
-    with help_container:
-        st.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
-        st.markdown("### ❓ Help & Resources")
-        st.markdown("""
-        - [Snowflake Cortex Docs](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst)
-        - [Tenant FAQs](https://www.snowflake.com/en/resources/)
-        - [Contact Support](https://www.snowflake.com/en/support/)
-        - [Send Feedback](mailto:support@yourcompany.com?subject=Property%20Management%20AI%20Feedback)
-        """)        
-# Updated init_config_options (removed Cortex Search Service selectbox)
-def init_config_options():
-    st.sidebar.radio("Data Source:", ["Database", "Document"], key="data_source")
-    st.sidebar.button("Clear Conversation", on_click=start_new_conversation)
-    with st.sidebar.expander("Advanced Settings"):
-        st.selectbox("Model:", MODELS, key="model_name")
-        st.number_input("Context Chunks", value=100, min_value=1, max_value=400, key="num_retrieved_chunks")
-        st.number_input("Chat History Messages", value=10, min_value=1, max_value=100, key="num_chat_messages")
-        st.toggle("Use Chat History", key="use_chat_history")
-        st.toggle("Debug Mode", key="debug_mode")
-    if st.session_state.debug_mode:
-        st.sidebar.expander("Session State").write(st.session_state)
-        
 # Updated query_cortex_search_service
 def query_cortex_search_service(query):
     try:
