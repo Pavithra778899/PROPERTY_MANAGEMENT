@@ -107,6 +107,12 @@ def stream_text(text: str, chunk_size: int = 2, delay: float = 0.02):
     for i in range(0, len(text), chunk_size):
         yield text[i:i + chunk_size]
         time.sleep(delay)
+ # Logo
+    logo_container = st.container()
+    with logo_container:
+        # Property management-themed icon (replace with your logo URL if available)
+        st.image("https://img.icons8.com/color/96/000000/apartment.png", width=100)
+        st.markdown("<h3 style='color: #29B5E8; text-align: center;'>Property Management AI</h3>", unsafe_allow_html=True)       
 
 # Dynamic tone for responses
 def get_tone(user_input):
