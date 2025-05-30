@@ -209,7 +209,7 @@ def make_chat_history_summary(chat_history, question):
         [INST]
         Based on the chat history below and the question, generate a query that extends the question
         with the chat history provided. The query should be in natural language.
-        Answer with only the query. Do not add any explanation.
+        Answer with only the query. Do  add  explanation.
 
         <chat_history>
         {chat_history_str}
@@ -545,22 +545,7 @@ else:
         Property management keeps your properties running smoothly—handling leasing, tenant screening, rent collection, maintenance, and more! 🏠 We’re all about transparency, efficiency, and top-notch service for property owners and tenants. Ask about occupancy rates, lease details, rent payments, or submit a maintenance request. Try a sample question from the sidebar or hit a quick action button below!
         """)
 
-    # Quick Action Buttons (Aligned)
-    st.markdown("**Quick Actions**")
-    cols = st.columns([1, 1, 1, 2])  # Adjusted for alignment
-    with cols[0]:
-        if st.button("Check Rent", key="check_rent", help="Check your rent status"):
-            query = "What is my rent status?"
-            st.session_state.show_greeting = False
-    with cols[1]:
-        if st.button("Maintenance Request", key="maintenance_request", help="Submit a maintenance issue"):
-            query = "Submit a maintenance request"
-            st.session_state.show_greeting = False
-    with cols[2]:
-        if st.button("Lease Details", key="lease_details", help="View your lease information"):
-            query = "Show my lease details"
-            st.session_state.show_greeting = False
-
+    
     # Chat History
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
