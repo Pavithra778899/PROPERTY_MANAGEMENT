@@ -159,7 +159,209 @@ def init_service_metadata():
     except Exception as e:
         st.error(f"❌ Failed to initialize Cortex Search service metadata: {str(e)}")
         return [{"name": CORTEX_SEARCH_SERVICES, "search_column": ""}]
+# Enhanced display_chart_tab
+def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
+    try:
+        if df is None or df.empty or len(df.columns) < 2:
+            st.warning("No valid data for visualization. Try a query with numerical or categorical data.")
+            if st.session_state.debug_mode:
+                st.sidebar.warning(f"Chart Data Issue: df={df}, columns={df.columns if df is not None else 'None'}")
+            return
+
+        query_lower = query.lower()
+        # Suggest chart type based on query and data
+        if re.search(r'\b(county|jurisdiction|status)\b', query_lower):
+            default_data = "Pie Chart"
+        elif re.search(r'\b(month|year|date|time)\b', query_lower):
+            default_data = "Line Chart"
+        elif re.search(r'\b(rent|payment|amount|total)\b', query_lower):
+            default_data = "Bar Chart"
+        else:
+            default_data = "Bar Chart"
+
+        all_cols = list(df.columns)
+        # Preselect meaningful default columns
+        x_default = next((col for col in all_cols if df[col].dtype in ['object', 'category']), all_cols[0])
+        y_default = next((col for col in all_cols if df[col].dtype in ['int64', 'float64'] and col != x_default), all_cols[1] if len(all_cols) > 1 else all_cols[0])
+
+        # Layout for chart controls
+        st.markdown("**Customize Your Chart**")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        x_col = col1.selectbox("X Axis", all_cols, index=all_cols.index(x_default), key=f"{prefix}_x", help="Choose the column for the X axis")
+        remaining_cols = [c for c in all_cols if c != x_col]
+        y_col = col2.selectbox("Y Axis", remaining_cols, index=remaining_cols.index(y_default) if y_default in remaining_cols else 0, key=f"{prefix}_y", help="Choose the column for the Y axis")
+        chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
+        chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type", help="Select the visualization type")
+
+        # Debug info
+        if st.session_state.debug_mode:
+            with st.sidebar.expander("Chart Configuration"):
+                st.text_area("Config", f"X: {x_col}\nY: {y_col}\nType: {chart_type}", height=100)
+
+        # Chart title based on query
+        chart_title = f"{chart_type}: {query[:50]}{'...' if len(query) > 50 else ''}" if query else f"{chart_type}"
+
+        # Custom Plotly styling
+        plot_config = {
+            'template': 'plotly_dark',
+            'layout': {
+                'title': {'text': chart_title, 'x': 0.5, 'xanchor': 'center'},
+                'font': {'color': 'white'},
+                'plot_bgcolor': '#1e1e1e',
+                'paper_bgcolor': '#1e1e1e',
+                'xaxis': {'title': x_col, 'gridcolor': '#444'},
+                'yaxis': {'title': y_col, 'gridcolor': '#444'},
+                'hovermode': 'closest',
+                'colorway': ['#29B5E8', '#FF6F61', '#6B7280', '#10B981', '#F59E0B']
+            }
+        }
+
+        # Generate chart
+        if chart_type == "Line Chart":
+            fig = px.line(df, x=x_col, y=y_col, title=chart_title)
+        elif chart_type == "Bar Chart":
+            fig = px.bar(df, x=x_col, y=y_col, title=chart_title)
+        elif chart_type == "Pie Chart":
+            fig = px.pie(df, names=x_col, values=y_col, title=chart_title)
+        elif chart_type == "Scatter Chart":
+            fig = px.scatter(df, x=x_col, y=y_col, title=chart_title)
+        elif chart_type == "Histogram Chart":
+            fig = px.histogram(df, x=x_col, title=chart_title)
         
+        fig.update_layout(**plot_config['layout'])
+        st.plotly_chart(fig, key=f"{prefix}_{chart_type.lower().replace(' ', '_')}", use_container_width=True)
+
+        # Chart description
+        desc = f"This {chart_type.lower()} visualizes {y_col} by {x_col}."
+        if chart_type == "Pie Chart":
+            desc += f" It shows the distribution of {x_col} based on {y_col}."
+        elif chart_type in ["Line Chart", "Bar Chart"]:
+            desc += f" It highlights trends or comparisons across {x_col}."
+        st.caption(desc)
+
+        # Data preview
+        with st.expander("Preview Data", expanded=False):
+            st.dataframe(df.head())
+
+        # Download button
+        fig.write_png(f"{prefix}_chart.png")
+        with open(f"{prefix}_chart.png", "rb") as file:
+            st.download_button(
+                label="Download Chart",
+                data=file,
+                file_name=f"{chart_title.replace(':', '_')}.png",
+                mime="image/png",
+                help="Download the chart as a PNG image"
+            )
+
+    except Exception as e:
+        st.error(f"❌ Failed to generate chart: {str(e)}. Try adjusting the X/Y axes or selecting a different chart type.")
+        if st.session_state.debug_mode:
+            with st.sidebar.expander("Chart Error"):
+                st.error(f"Details: {str(e)}")
+
+# Enhanced Sidebar
+with st.sidebar:
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1e1e1e 0%, #2a2a2a 100%);
+        padding: 1rem;
+    }
+    [data-testid="stSidebar"] [data-testid="stButton"] > button {
+        background: linear-gradient(90deg, #29B5E8, #10B981) !important;
+        color: white !important;
+        font-weight: bold !important;
+        width: 100% !important;
+        border-radius: 8px !important;
+        margin: 0.5rem 0 !important;
+        border: none !important;
+        padding: 0.75rem !important;
+        transition: transform 0.2s;
+    }
+    [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
+        transform: scale(1.05);
+    }
+    .sidebar-divider {
+        border-top: 1px solid #29B5E8;
+        margin: 1rem 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Logo
+    logo_container = st.container()
+    with logo_container:
+        # Property management-themed icon (replace with your logo URL if available)
+        st.image("https://img.icons8.com/color/96/000000/apartment.png", width=100)
+        st.markdown("<h3 style='color: #29B5E8; text-align: center;'>Property Management AI</h3>", unsafe_allow_html=True)
+
+    # Settings
+    settings_container = st.container()
+    with settings_container:
+        st.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
+        st.markdown("### 🏠 Settings")
+        st.radio(
+            "Select Data Source:",
+            ["Database", "Document"],
+            key="data_source",
+            help="Choose 'Database' for SQL queries or 'Document' for text search."
+        )
+        with st.expander("Advanced Settings", expanded=False):
+            st.selectbox(
+                "Model:",
+                MODELS,
+                key="model_name",
+                help="Select the AI model for query processing."
+            )
+            st.number_input(
+                "Context Chunks",
+                value=100,
+                min_value=1,
+                max_value=400,
+                key="num_retrieved_chunks",
+                help="Number of document chunks to retrieve."
+            )
+            st.number_input(
+                "Chat History Messages",
+                value=10,
+                min_value=1,
+                max_value=100,
+                key="num_chat_messages",
+                help="Number of past messages to include in context."
+            )
+            st.toggle("Use Chat History", key="use_chat_history", help="Include chat history in queries.")
+            st.toggle("Debug Mode", key="debug_mode", help="Show debug information.")
+        if st.button("Reset Settings", key="reset_settings", help="Revert to default settings"):
+            st.session_state.data_source = "Database"
+            st.session_state.model_name = "mistral-large"
+            st.session_state.num_retrieved_chunks = 100
+            st.session_state.num_chat_messages = 10
+            st.session_state.use_chat_history = True
+            st.session_state.debug_mode = False
+            st.rerun()
+
+    # About
+    about_container = st.container()
+    with about_container:
+        st.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
+        st.markdown("### ℹ️ About")
+        st.markdown("""
+        Your AI-powered assistant for property management! 🏠  
+        Ask about leases, tenants, rent, or maintenance, and get insights with visualizations. Powered by Snowflake Cortex for seamless data analysis.
+        """)
+
+    # Help
+    help_container = st.container()
+    with help_container:
+        st.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
+        st.markdown("### ❓ Help & Resources")
+        st.markdown("""
+        - [Snowflake Cortex Docs](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst)
+        - [Tenant FAQs](https://www.snowflake.com/en/resources/)
+        - [Contact Support](https://www.snowflake.com/en/support/)
+        - [Send Feedback](mailto:support@yourcompany.com?subject=Property%20Management%20AI%20Feedback)
+        """)        
 # Updated init_config_options (removed Cortex Search Service selectbox)
 def init_config_options():
     st.sidebar.radio("Data Source:", ["Database", "Document"], key="data_source")
