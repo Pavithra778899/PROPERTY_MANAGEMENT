@@ -184,12 +184,9 @@ with st.sidebar:
         st.image(logo_url, width=250)
 
     with button_container:
-        # Ensure you define this function elsewhere
-        if 'init_config_options' in globals():
-            init_config_options()
-        else:
-            st.warning("⚠️ Missing `init_config_options()` function.")
-        st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
+        init_config_options()
+        # ✅ Use a unique key, or check if it's used elsewhere
+        st.radio("Select Data Source:", ["Database", "Document"], key="sidebar_data_source")
 
     with about_container:
         st.markdown("### About")
@@ -206,6 +203,7 @@ with st.sidebar:
             "- [Snowflake Cortex Analyst Docs](https://docs.snowflake.com/)  \n"
             "- [Contact Support](https://www.snowflake.com/en/support/)"
         )
+
 
 # Dynamic tone for responses
 def get_tone(user_input):
