@@ -26,7 +26,7 @@ MODELS = ["mistral-large", "snowflake-arctic", "llama3-70b", "llama3-8b"]
 
 # Streamlit Page Config
 st.set_page_config(
-    page_title="EBS Property Management AI",
+    page_title="Property Management AI",
     layout="wide",
     initial_sidebar_state="auto"
 )
@@ -92,19 +92,21 @@ st.markdown("""
     width: 100% !important;
     margin: 5px 0 !important;
 }
+.quick-action-button {
+    background-color: #29B5E8 !important;
+    color: white !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+    text-align: center !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Enhanced typing animation
+# Enhanced typing animation (returns a generator)
 def stream_text(text: str, chunk_size: int = 2, delay: float = 0.02):
-    placeholder = st.empty()
-    displayed_text = ""
     for i in range(0, len(text), chunk_size):
-        displayed_text += text[i:i + chunk_size]
-        placeholder.markdown(f"<div style='color: #29B5E8;'>Typing... {displayed_text}</div>", unsafe_allow_html=True)
+        yield text[i:i + chunk_size]
         time.sleep(delay)
-    placeholder.markdown(displayed_text, unsafe_allow_html=True)
-    return displayed_text
 
 # Dynamic tone for responses
 def get_tone(user_input):
@@ -117,8 +119,8 @@ def get_tone(user_input):
 
 # Random greetings for personality
 GREETINGS = [
-    "Yo, welcome to your EBS Property Management AI! 😎 Ready to manage some properties?",
-    "Hey there! Let’s make property management as smooth as a Philly skyline! 🏙️",
+    "Yo, welcome to your Property Management AI! 😎 Ready to manage some properties?",
+    "Hey there! Let’s make property management smoother than a sunny day! ☀️",
     "What’s good? Your property management sidekick is here! 🚀"
 ]
 
@@ -241,11 +243,11 @@ def create_prompt(user_question):
     
     prompt = f"""
         [INST]
-        You are a helpful AI chat assistant for EBS Property Management with RAG capabilities.
+        You are a helpful AI chat assistant for property management with RAG capabilities.
         Use the context between <context> and </context> tags and the user's chat history between
         <chat_history> and </chat_history> tags to provide a concise, professional, yet friendly
         answer relevant to property management (e.g., leases, tenants, rent, maintenance).
-        Add a touch of personality inspired by the EBS brand.
+        Add a touch of personality.
 
         <chat_history>
         {chat_history_str}
@@ -262,7 +264,7 @@ def create_prompt(user_question):
     return complete(st.session_state.model_name, prompt)
 
 if not st.session_state.authenticated:
-    st.title("EBS Property Management AI")
+    st.title("Property Management AI")
     st.markdown("Please log in to manage your properties with ease!")
     st.session_state.username = st.text_input("Snowflake Username:", value=st.session_state.username)
     st.session_state.password = st.text_input("Password:", type="password")
@@ -523,11 +525,11 @@ else:
             st.error(f"❌ Error generating chart: {str(e)}")
 
     # UI Layout
-    st.title("EBS Property Management AI")
+    st.title("Property Management AI")
     st.markdown(f"Semantic Model: `{SEMANTIC_MODEL.split('/')[-1]}`")
     init_config_options()
 
-    # Tenant ID Input for Personalized Interactions
+    # Tenant ID Input
     if not st.session_state.tenant_id:
         with st.form("tenant_form"):
             tenant_id = st.text_input("Enter Your Tenant ID:")
@@ -536,33 +538,37 @@ else:
                 st.success(f"Welcome, Tenant {tenant_id}! Let’s manage your property needs! 🏠")
                 st.rerun()
 
-    # Updated Welcome Message with Property Management Knowledge
+    # Updated Welcome Message
     if st.session_state.show_greeting and not st.session_state.chat_history:
         st.markdown(f"""
         **{random.choice(GREETINGS)}**  
-        Property management is all about keeping your properties running like a well-oiled machine—handling leasing, tenant screening, rent collection, maintenance, and more! 🏠 Inspired by EBS, we focus on transparency, efficiency, and top-notch service for property owners and tenants. Ask about occupancy rates, lease details, rent payments, or submit a maintenance request. Try a sample question from the sidebar or hit a quick action button below!
+        Property management keeps your properties running smoothly—handling leasing, tenant screening, rent collection, maintenance, and more! 🏠 We’re all about transparency, efficiency, and top-notch service for property owners and tenants. Ask about occupancy rates, lease details, rent payments, or submit a maintenance request. Try a sample question from the sidebar or hit a quick action button below!
         """)
 
-    # Quick Reply Buttons
+    # Quick Action Buttons (Aligned)
     st.markdown("**Quick Actions**")
-    col1, col2, col3 = st.columns(3)
-    if col1.button("Check Rent"):
-        query = "What is my rent status?"
-        st.session_state.show_greeting = False
-    if col2.button("Maintenance Request"):
-        query = "Submit a maintenance request"
-        st.session_state.show_greeting = False
-    if col3.button("Lease Details"):
-        query = "Show my lease details"
-        st.session_state.show_greeting = False
+    cols = st.columns([1, 1, 1, 2])  # Adjusted for alignment
+    with cols[0]:
+        if st.button("Check Rent", key="check_rent", help="Check your rent status"):
+            query = "What is my rent status?"
+            st.session_state.show_greeting = False
+    with cols[1]:
+        if st.button("Maintenance Request", key="maintenance_request", help="Submit a maintenance issue"):
+            query = "Submit a maintenance request"
+            st.session_state.show_greeting = False
+    with cols[2]:
+        if st.button("Lease Details", key="lease_details", help="View your lease information"):
+            query = "Show my lease details"
+            st.session_state.show_greeting = False
 
     # Chat History
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"], unsafe_allow_html=True)
             if message["role"] == "assistant" and "results" in message and message["results"] is not None:
-                with st.expander("View SQL Query", expanded=False):
-                    st.code(message["sql"], language="sql")
+                if message.get("sql"):
+                    with st.expander("View SQL Query", expanded=False):
+                        st.code(message["sql"], language="sql")
                 st.markdown(f"**Query Results ({len(message['results'])} rows):**")
                 st.dataframe(message["results"])
                 if not message["results"].empty and len(message["results"].columns) >= 2:
@@ -624,11 +630,10 @@ else:
                 if is_greeting and original_query.lower().strip() == "hi":
                     response_content = f"""
                     {get_tone(original_query)}  
-                    Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, all with EBS-inspired transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started!
+                    Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started!
                     """
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.write_stream(stream_text(response_content))
+                    st.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
                     st.session_state.last_suggestions = suggest_sample_questions(query)
@@ -642,9 +647,8 @@ else:
                     for i, q in enumerate(selected_questions, 1):
                         response_content += f"{i}. {q}\n"
                     response_content += "\nFeel free to ask any of these or your own question!"
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.write_stream(stream_text(response_content))
+                    st.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.last_suggestions = selected_questions
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
@@ -653,9 +657,8 @@ else:
                     response = create_prompt(query)
                     if response:
                         response_content = f"**{get_tone(query)}**\n{response}"
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
+                        response_placeholder.write_stream(stream_text(response_content))
+                        st.markdown(response_content, unsafe_allow_html=True)
                         assistant_response["content"] = response_content
                         st.session_state.messages.append({"role": "assistant", "content": response_content})
                     else:
@@ -667,9 +670,8 @@ else:
                     summary = summarize(query)
                     if summary:
                         response_content = f"**{get_tone(query)}**\n**Summary:**\n{summary}"
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
+                        response_placeholder.write_stream(stream_text(response_content))
+                        st.markdown(response_content, unsafe_allow_html=True)
                         assistant_response["content"] = response_content
                         st.session_state.messages.append({"role": "assistant", "content": response_content})
                     else:
@@ -689,9 +691,8 @@ else:
                                 response_content = f"**{get_tone(query)}**\nRequest submitted! 🛠️ Our team will jump on it faster than you can say 'fixed!'"
                             except Exception as e:
                                 response_content = f"**{get_tone(query)}**\nOops, something broke! 😅 Try again or contact support."
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
+                            response_placeholder.write_stream(stream_text(response_content))
+                            st.markdown(response_content, unsafe_allow_html=True)
                             assistant_response["content"] = response_content
                             st.session_state.messages.append({"role": "assistant", "content": response_content})
 
@@ -709,11 +710,11 @@ else:
                             if not summary:
                                 summary = "⚠️ Unable to generate a natural language summary."
                             response_content = f"**{get_tone(query)}**\n{summary}"
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
-                            with st.expander("View SQL Query", expanded=False):
-                                st.code(sql, language="sql")
+                            response_placeholder.write_stream(stream_text(response_content))
+                            st.markdown(response_content, unsafe_allow_html=True)
+                            if sql:  # Ensure SQL query is displayed
+                                with st.expander("View SQL Query", expanded=False):
+                                    st.code(sql, language="sql")
                             st.markdown(f"**Query Results ({len(results)} rows):**")
                             st.dataframe(results)
                             if len(results.columns) >= 2:
@@ -749,16 +750,14 @@ else:
                         summary = create_prompt(query)
                         if summary:
                             response_content = f"**{get_tone(query)}**\n**Answer:**\n{summary}"
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
+                            response_placeholder.write_stream(stream_text(response_content))
+                            st.markdown(response_content, unsafe_allow_html=True)
                             assistant_response["content"] = response_content
                             st.session_state.messages.append({"role": "assistant", "content": response_content})
                         else:
                             response_content = f"**{get_tone(query)}**\n**🔍 Key Information (Unsummarized):**\n{summarize_unstructured_answer(raw_result)}"
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
+                            response_placeholder.write_stream(stream_text(response_content))
+                            st.markdown(response_content, unsafe_allow_html=True)
                             assistant_response["content"] = response_content
                             st.session_state.messages.append({"role": "assistant", "content": response_content})
                     else:
@@ -768,9 +767,8 @@ else:
 
                 else:
                     response_content = f"**{get_tone(query)}**\nPlease select a data source to proceed with your query."
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.write_stream(stream_text(response_content))
+                    st.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
 
@@ -780,9 +778,8 @@ else:
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"{i}. {suggestion}\n"
                     response_content += "\nTry one of these or rephrase your question!"
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
+                    response_placeholder.write_stream(stream_text(response_content))
+                    st.markdown(response_content, unsafe_allow_html=True)
                     assistant_response["content"] = response_content
                     st.session_state.last_suggestions = suggestions
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
