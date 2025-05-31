@@ -317,12 +317,6 @@ if not st.session_state.authenticated:
                 cur.execute("ALTER SESSION SET TIMEZONE = 'UTC'")
                 cur.execute("ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = TRUE")
             st.session_state.authenticated = True
-            # Store the login time in IST
-            from datetime import datetime
-            import pytz
-            ist = pytz.timezone("Asia/Kolkata")
-            login_time = datetime.now(ist)
-            st.session_state.login_time = login_time
             st.success("Authentication successful! Redirecting...")
             st.rerun()
         except Exception as e:
@@ -730,14 +724,6 @@ else:
     st.title("Cortex AI Assistant by DiLytics")
     semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
     st.markdown(f"Semantic Model: `{semantic_model_filename}`")
-    # Display the date and time based on login time
-if "login_time" in st.session_state:
-    login_time = st.session_state.login_time
-    formatted_time = login_time.strftime("%I:%M %p IST on %A, %B %d, %Y")
-    st.markdown(f"**Today's Date and Time:** {formatted_time}")
-else:
-    st.markdown("**Today's Date and Time:** Not available")
-    init_service_metadata()
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
         st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property management. Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started! — simply type your question to get started.")
