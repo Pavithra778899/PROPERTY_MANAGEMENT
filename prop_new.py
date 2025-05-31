@@ -830,23 +830,34 @@ else:
     st.session_state.messages.append({"role": "assistant", "content": response_content})
     st.session_state.last_suggestions = suggestions
                 elif is_greeting or is_suggestion:
-                    greeting = original_query.lower().split()[0]
-                    if greeting not in ["hi", "hello", "hey", "greet"]:
-                        greeting = "hello"
-                    response_content = (
-                        f"Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, or provide insights from documents.\n\n"
-                        "Here are some types of information you can get from me:\n\n"
-                        "1. **Property Metrics**: Information on occupancy rates, number of properties leased, or total rental income by property.\n"
-                        "2. **Lease Details**: Insights into lease execution, commencement, and termination dates.\n"
-                        "3. **Tenant Information**: Details on tenant screening, pending rent payments, or tenant move-ins.\n"
-                        "4. **Financial Insights**: Data on supplier payments, customer billing, budget recovery, or average payments per property.\n"
-                        "5. **Maintenance Requests**: Information on submitting or tracking maintenance requests.\n\n"
-                        "Feel free to ask anything, or try one of these sample questions:\n"
-                        "- Total number of properties currently occupied?\n"
-                        "- What are the details of lease execution, commencement, and termination?\n"
-                        "- What is the average supplier payment per property?\n"
-                        "- Which tenants have pending rent payments?"
-                    )
+    greeting = original_query.lower().split()[0]
+    if greeting not in ["hi", "hello", "hey", "greet"]:
+        greeting = "hello"
+    response_content = (
+        f"Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, or provide insights from documents.\n\n"
+        "Here are some types of information you can get from me:\n\n"
+        "1. **Property Metrics**: Information on occupancy rates, number of properties leased, or total rental income by property.\n"
+        "2. **Lease Details**: Insights into lease execution, commencement, and termination dates.\n"
+        "3. **Tenant Information**: Details on tenant screening, pending rent payments, or tenant move-ins.\n"
+        "4. **Financial Insights**: Data on supplier payments, customer billing, budget recovery, or average payments per property.\n"
+        "5. **Maintenance Requests**: Information on submitting or tracking maintenance requests.\n\n"
+        "Feel free to ask anything, or try one of these sample questions:"
+    )
+    suggestions = [
+        "Total number of properties currently occupied?",
+        "What are the details of lease execution, commencement, and termination?",
+        "What is the average supplier payment per property?",
+        "Which tenants have pending rent payments?"
+    ]
+    # Add numbered suggestions
+    for i, suggestion in enumerate(suggestions, 1):
+        response_content += f"\n{i}. {suggestion}"
+    with response_placeholder:
+        st.write_stream(stream_text(response_content))
+        st.markdown(response_content, unsafe_allow_html=True)
+    assistant_response["content"] = response_content
+    st.session_state.last_suggestions = suggestions
+    st.session_state.messages.append({"role": "assistant", "content": response_content})
                     if failed_response:
     suggestions = suggest_sample_questions(combined_query)
     response_content = "I am not sure about your question. Here are some questions you can ask me:\n\n"
