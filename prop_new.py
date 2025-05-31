@@ -807,30 +807,28 @@ else:
                 response_content = ""
                 failed_response = False
 
-                if is_greeting and original_query.lower().strip() == "hi":
-                    response_content = """
-                    Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, or provide insights from documents.
-
-                    Here are some questions you can try:
-
-                    Total number of properties currently occupied?
-                    What is the number of properties currently leased?
-                    What are the details of lease execution, commencement, and termination?
-                    What is the average supplier payment per property?
-                    Feel free to ask anything, or pick one of the suggested questions to get started!
-                    """
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
-                    assistant_response["content"] = response_content
-                    st.session_state.messages.append({"role": "assistant", "content": response_content})
-                    st.session_state.last_suggestions = [
-                        "Total number of properties currently occupied?",
-                        "What is the number of properties currently leased?",
-                        "What are the details of lease execution, commencement, and termination?",
-                        "What is the average supplier payment per property?"
-                    ]
-
+                elif is_greeting and original_query.lower().strip() == "hi":
+    response_content = """
+    Hello! Welcome to the Property Management AI Assistant! I'm here to help you explore and analyze property-related data, answer questions about leasing, tenant screening, rent collection, and maintenance, or provide insights from documents.
+    
+    Here are some questions you can try:
+    """
+    suggestions = [
+        "Total number of properties currently occupied?",
+        "What is the number of properties currently leased?",
+        "What are the details of lease execution, commencement, and termination?",
+        "What is the average supplier payment per property?"
+    ]
+    # Add numbered suggestions
+    for i, suggestion in enumerate(suggestions, 1):
+        response_content += f"\n{i}. {suggestion}"
+    response_content += "\n\nFeel free to ask anything, or pick one of the suggested questions to get started!"
+    with response_placeholder:
+        st.write_stream(stream_text(response_content))
+        st.markdown(response_content, unsafe_allow_html=True)
+    assistant_response["content"] = response_content
+    st.session_state.messages.append({"role": "assistant", "content": response_content})
+    st.session_state.last_suggestions = suggestions
                 elif is_greeting or is_suggestion:
                     greeting = original_query.lower().split()[0]
                     if greeting not in ["hi", "hello", "hey", "greet"]:
@@ -849,17 +847,18 @@ else:
                         "- What is the average supplier payment per property?\n"
                         "- Which tenants have pending rent payments?"
                     )
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
-                    assistant_response["content"] = response_content
-                    st.session_state.last_suggestions = [
-                        "Total number of properties currently occupied?",
-                        "What are the details of lease execution, commencement, and termination?",
-                        "What is the average supplier payment per property?",
-                        "Which tenants have pending rent payments?"
-                    ]
-                    st.session_state.messages.append({"role": "assistant", "content": response_content})
+                    if failed_response:
+    suggestions = suggest_sample_questions(combined_query)
+    response_content = "I am not sure about your question. Here are some questions you can ask me:\n\n"
+    for i, suggestion in enumerate(suggestions, 1):
+        response_content += f"{i}. {suggestion}\n"
+    response_content += "\nThese questions might help clarify your query. Feel free to try one or rephrase your question!"
+    with response_placeholder:
+        st.write_stream(stream_text(response_content))
+        st.markdown(response_content, unsafe_allow_html=True)
+    assistant_response["content"] = response_content
+    st.session_state.last_suggestions = suggestions
+    st.session_state.messages.append({"role": "assistant", "content": response_content})
 
                 elif is_complete:
                     response = create_prompt(combined_query)
