@@ -17,7 +17,7 @@ DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000  # in milliseconds
-CORTEX_SEARCH_SERVICES = "AI.DWH_MART.PROPERTYMANAGEMENT"
+CORTEX_SEARCH_SERVICES = "PROC_SERVICE"
 SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management.yaml'
 
 # Model options
@@ -63,9 +63,9 @@ if "current_sql" not in st.session_state:
 if "current_summary" not in st.session_state:
     st.session_state.current_summary = None
 if "service_metadata" not in st.session_state:
-    st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
+    st.session_state.service_metadata = [{"name": "PROC_SERVICE", "search_column": ""}]
 if "selected_cortex_search_service" not in st.session_state:
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.PROPERTYMANAGEMENT"
+    st.session_state.selected_cortex_search_service = "PROC_SERVICE"
 if "model_name" not in st.session_state:
     st.session_state.model_name = "mistral-large"
 if "num_retrieved_chunks" not in st.session_state:
@@ -161,13 +161,13 @@ def start_new_conversation():
     st.rerun()
 
 def init_service_metadata():
-    st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.PROPERTYMANAGEMENT"
+    st.session_state.service_metadata = [{"name": "PROC_SERVICE", "search_column": ""}]
+    st.session_state.selected_cortex_search_service = "PROC_SERVICE"
     try:
-        svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE PROPERTYMANAGEMENT;").collect()[0]["search_column"]
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
+        svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE PROC_SERVICE;").collect()[0]["search_column"]
+        st.session_state.service_metadata = [{"name": "PROC_SERVICE", "search_column": svc_search_col}]
     except Exception as e:
-        st.error(f"❌ Failed to verify PROPERTYMANAGEMENT: {str(e)}. Using default configuration.")
+        st.error(f"❌ Failed to verify PROC_SERVICE: {str(e)}. Using default configuration.")
 
 def query_cortex_search_service(query):
     try:
@@ -176,7 +176,7 @@ def query_cortex_search_service(query):
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services["AI.DWH_MART.PROPERTYMANAGEMENT"]
+            .cortex_search_services["PROC_SERVICE"]
         )
         context_documents = cortex_search_service.search(
             query, columns=[], limit=st.session_state.num_retrieved_chunks
@@ -330,9 +330,8 @@ else:
 
     def is_structured_query(query: str):
         structured_patterns = [
-            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any|rejected deliveries?|least|highest|duration|approval)\b',
-            r'\b(vendor|supplier|requisition|purchase order|po|organization|department|buyer|delivery|received|billed|rejected|late|on time|late deliveries?|Suppliers|payment|billing|percentage|list)\b',
-            r'\b(property|tenant|lease|rent|occupancy|maintenance)\b'
+            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|names?|are there any)\b',
+            r'\b(property|tenant|lease|rent|occupancy|maintenance|unit|building|contract|payment|billing|status|request)\b'
         ]
         return any(re.search(pattern, query.lower()) for pattern in structured_patterns)
 
@@ -466,7 +465,7 @@ else:
     def suggest_sample_questions(query: str) -> List[str]:
         try:
             prompt = (
-                f"The user asked for: '{query}'. Generate 3–5 clear, concise sample questions related to procurement, suppliers, or payments. "
+                f"The user asked for: '{query}'. Generate 3–5 clear, concise sample questions related to property management, tenants, or maintenance. "
                 f"Format as a numbered list."
             )
             response = complete(st.session_state.model_name, prompt)
@@ -480,20 +479,20 @@ else:
                 return questions[:5]
             else:
                 return [
-                    "What is the total number of suppliers?",
-                    "What is the average supplier payment per property?",
-                    "Which suppliers have pending payments?",
-                    "What are the details of purchase orders by department?",
-                    "What is the budget recovery by billing purpose?"
+                    "What is the total number of occupied properties?",
+                    "Which properties have pending maintenance requests?",
+                    "What is the average rent per property by state?",
+                    "How many tenants have leases expiring this month?",
+                    "What is the occupancy rate by building?"
                 ]
         except Exception as e:
             st.error(f"❌ Failed to generate sample questions: {str(e)}")
             return [
-                "Which suppliers have delayed payments?",
-                "What’s the total payment amount by vendor?",
-                "Which purchase orders are pending approval?",
-                "What’s the average payment processing time?",
-                "Which department has the highest procurement budget?"
+                "Which properties have overdue rent payments?",
+                "What is the total maintenance cost by property?",
+                "Which tenants have submitted maintenance requests?",
+                "What is the average lease duration by property?",
+                "Which buildings have the highest occupancy rates?"
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
@@ -572,9 +571,9 @@ else:
                             else:
                                 st.warning("No positive numeric values available for Pie Chart.")
                         except Exception as e:
-                            st.error(f"❌ Error generating Pie Chart: {str(e)}")
+                            st.error(f"❌ Error generating chart: {str(e)}")
                             if st.session_state.debug_mode:
-                                st.sidebar.error(f"Pie Chart Error: {str(e)}")
+                                st.sidebar.error(f"Chart Error Details: {str(e)}")
                 elif chart_type == "Scatter Chart":
                     fig = px.scatter(df, x=x_col, y=y_col, title=chart_type)
                     fig.update_layout(**axis_layout)
@@ -616,11 +615,11 @@ else:
             border: none !important;
             padding: 0.5rem 1rem !important;
         }
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Clear conversation"] > button,
+        [data-testid="stSidebar"] [data-testid="stButton"][data-testid="clear_conversation_button"] > button,
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="About"] > button,
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Help & Documentation"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Sample Questions"] > button {
+        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > stButton,
+        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Show Sample Questions"] > button {
             background-color: #28A745 !important;
             color: white !important;
             font-weight: normal !important;
@@ -629,7 +628,7 @@ else:
         </style>
         """, unsafe_allow_html=True)
 
-        st.image("https://www.snowflake.com/wp-content/themes/snowflake/assets/img/logo-blue.svg", width=250)
+        st.image("https://www.snowflake.com/wp-content/themes/snowflake/assets/img/logo-preview-blue.svg", width=100)
         if st.button("Clear conversation", key="clear_conversation_button"):
             start_new_conversation()
         st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
@@ -645,7 +644,7 @@ else:
                 max_value=400
             )
             st.number_input(
-                "Select number of messages to use in chat history",
+                "Number of messages to use in chat history",
                 value=10,
                 key="num_chat_messages",
                 min_value=1,
@@ -653,36 +652,34 @@ else:
             )
         if st.session_state.debug_mode:
             st.expander("Session State").write(st.session_state)
-        if st.button("Sample Questions", key="sample_questions_button"):
+        if st.button("Show Sample Questions", key="sample_questions_button"):
             st.session_state.show_sample_questions = not st.session_state.get("show_sample_questions", False)
         if st.session_state.get("show_sample_questions", False):
             st.markdown("### Sample Questions")
             sample_questions = [
-                "What is Procurement Management",
-                "Total number of suppliers?",
-                "What is the number of purchase orders by status?",
-                "What is the average supplier payment per property?",
-                "What are the details of supplier payments by month?",
-                "Which suppliers have pending payments?",
-                "What is the total procurement budget by department?",
-                "What are the details of purchase orders by vendor?",
-                "What is the budget recovery by billing purpose?",
-                "What are the details of customer billing?",
-                "Which purchase orders are delayed?",
-                "What is the approval status of recent requisitions?"
+                "What is the total number of occupied properties?",
+                "Which properties have pending maintenance requests?",
+                "What is the average rent per property by state?",
+                "How many tenants have leases expiring this month?",
+                "What is the occupancy rate by building?",
+                "Which properties have overdue rent payments?",
+                "What is the total maintenance cost by property?",
+                "Which tenants have submitted maintenance requests?",
+                "What is the average lease duration by property?",
+                "Which buildings have the highest occupancy rates?"
             ]
             for sample in sample_questions:
-                if st.button(sample, key=f"sidebar_{sample}"):
+                if st.button(sample, key=f"sample_{sample}"):
                     st.session_state.query = sample
                     st.session_state.show_greeting = False
         with st.expander("Submit Maintenance Request"):
             st.markdown("### Submit a Maintenance Request")
             property_id = st.text_input("Property ID", key="maint_property_id")
-            tenant_name = st.text_input("Tenant Name", key="maint_tenant_name")
-            issue_description = st.text_area("Issue Description", key="maint_issue_description")
-            if st.button("Submit Request", key="submit_maintenance_request"):
+            tenant_name = st.text_input("Tenant Name", key="tenant_name")
+            issue_description = st.text_area("Issue Description", key="issue_description")
+            if st.button("Submit Request", key="submit_maintenance"):
                 if not property_id or not tenant_name or not issue_description:
-                    st.error("❌ Please fill in all fields to submit a maintenance request.")
+                    st.error("Please fill in all fields to submit a maintenance request.")
                 else:
                     success, message = submit_maintenance_request(property_id, tenant_name, issue_description)
                     if success:
@@ -691,7 +688,7 @@ else:
                         st.error(message)
         st.markdown("---")
         with st.container():
-            if st.button("History", key="history_button"):
+            if st.button("History", key="history"):
                 toggle_history()
             if st.session_state.show_history:
                 st.markdown("### Recent Questions")
@@ -703,54 +700,51 @@ else:
                         if st.button(question, key=f"history_{idx}"):
                             st.session_state.query = question
                             st.session_state.show_greeting = False
-            if st.button("About", key="about_button"):
+            if st.button("About", key="about"):
                 toggle_about()
             if st.session_state.show_about:
                 st.markdown("### About")
                 st.write(
-                    "This application uses **Snowflake Cortex Analyst** to interpret "
-                    "your natural language questions and generate procurement insights. "
-                    "Simply ask a question below to see relevant answers and visualizations."
+                    "This application uses **Snowflake Cortex AI** to interpret "
+                    "natural language questions and generate property management insights. "
+                    "Ask about properties, tenants, maintenance, or procurement data to see answers and visualizations."
                 )
-            if st.button("Help & Documentation", key="help_button"):
+            if st.button("Help & Documentation", key="help"):
                 toggle_help()
             if st.session_state.show_help:
                 st.markdown("### Help & Documentation")
                 st.write(
                     "- [User Guide](https://docs.snowflake.com/en/guides-overview-ai-features)  \n"
-                    "- [Snowflake Cortex Analyst Docs](https://docs.snowflake.com/)  \n"
+                    "- [Snowflake Cortex AI Docs](https://docs.snowflake.com/)  \n"
                     "- [Contact Support](https://www.snowflake.com/en/support/)"
                 )
 
     # Main UI
     if st.session_state.authenticated:
         st.markdown(
-            f'<img src="https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png" class="dilytics-logo">',
+            f'<img src="https://raw.githubusercontent.com/nkumb/main/DilyticsLogo.png" class="dilytics-logo-img">',
             unsafe_allow_html=True
         )
         with st.container():
-            st.markdown(
-                """
+            st.markdown("""
                 <div class="fixed-header">
-                    <h1 style='color: #29B5E8; margin-bottom: 5px;'>Cortex AI-Procurement Assistant by DiLytics</h1>
-                    <p style='font-size: 16px; color: #333;'><strong>Welcome to Cortex AI. I am here to help with Dilytics Procurement Insights Solutions</strong></p>
+                    <h1 style='color: #29B5E8; margin-bottom: 5px;'>Cortex AI-Property Management Assistant</h1>
+                    <p style='font-size: 16px; color: #333;'><strong>Welcome to Cortex AI. I am here to help with DiLytics Property Management Solutions</strong></p>
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+                """, unsafe_allow_html=True)
         semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
         st.markdown(f"Semantic Model: `{semantic_model_filename}`")
         init_service_metadata()
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
-        st.markdown("Welcome! I’m the Cortex AI-Property Management Assistant by DiLytics, ready to assist you with procurement insights. Ask about suppliers, purchase orders, payments, or submit a maintenance request to get started! Simply type your question below.")
+        st.markdown("Welcome! I’m the Cortex AI-Property Management Assistant by DiLytics, here to assist with property management insights. Ask about properties, tenants, maintenance requests, or procurement data to get started! Type your question below.")
     else:
         st.session_state.show_greeting = False
 
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"], unsafe_allow_html=True)
-            if message["role"] == "assistant" and "results" in message and message["results"] is not None:
+            if message["role"] == "assistant" and "results" in message and message["results"]:
                 with st.expander("View SQL Query", expanded=False):
                     st.code(message["sql"], language="sql")
                 st.markdown(f"**Query Results ({len(message['results'])} rows):**")
@@ -766,7 +760,7 @@ else:
     if st.session_state.query:
         query = st.session_state.query
         if query.lower().startswith("no of"):
-            query = query.replace("no of", "number of", 1)
+            query = query.replace("no of", "number of", 1).strip()
         
         st.session_state.show_greeting = False
         st.session_state.chart_x_axis = None
@@ -810,7 +804,7 @@ else:
                     st.session_state.data_source = "Database"
                 is_structured = is_structured_query(combined_query) and st.session_state.data_source == "Database"
                 is_complete = is_complete_query(combined_query)
-                is_summarize = is_summarize_query(combined_query)
+                is_summarise = is_summarize_query(combined_query)
                 is_suggestion = is_question_suggestion_query(combined_query)
                 is_greeting = is_greeting_query(combined_query)
                 if st.session_state.debug_mode:
@@ -821,24 +815,24 @@ else:
 
                 if is_suggestion or is_greeting:
                     response_content = (
-                        "Hello! I'm the Cortex AI-Procurement Assistant by DiLytics, designed to provide insights into procurement and property management. Here's what you can expect from me:\n\n"
-                        "1. **Procurement Metrics**: Get data on suppliers, purchase orders, payment statuses, and budget recovery.\n"
-                        "2. **Supplier Insights**: Analyze supplier payments, pending payments, or vendor performance.\n"
-                        "3. **Purchase Order Details**: Explore details like approval status, delays, or departmental budgets.\n"
-                        "4. **Maintenance Requests**: Submit or track maintenance requests for properties.\n"
-                        "5. **Data Visualizations**: Generate charts for metrics like payments by month or budget by department.\n\n"
+                        "Hello! I'm the Cortex AI-Property Management Assistant by DiLytics, designed to provide insights into property management. Here's what I can do for you:\n\n"
+                        "1. **Property Metrics**: Analyze occupancy rates, rent calculations, and property statuses.\n"
+                        "2. **Tenant Insights**: Retrieve tenant details, lease statuses, and payment histories.\n"
+                        "3. **Maintenance Management**: Track and submit maintenance requests for properties.\n"
+                        "4. **Procurement Data**: Access supplier payments and purchase order details related to properties.\n"
+                        "5. **Data Visualizations**: Generate charts for metrics like occupancy by building or rent by state.\n\n"
                         "Here are some sample questions to get started:"
                     )
                     suggestions = [
-                        "What is the total number of suppliers?",
-                        "What is the average supplier payment per property?",
-                        "Which purchase orders are pending approval?",
-                        "What are the details of supplier payments by month?",
-                        "Which suppliers have delayed payments?"
+                        "What is the total number of occupied properties?",
+                        "Which properties have pending maintenance requests?",
+                        "What is the average rent per property by state?",
+                        "How many tenants have leases expiring this month?",
+                        "What is the occupancy rate by building?"
                     ]
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"\n{i}. {suggestion}"
-                    response_content += "\n\nFeel free to ask anything, or pick one of the suggested questions!"
+                    response_content += "\n\nFeel free to ask anything, or try one of these questions!"
                     with response_placeholder:
                         st.write_stream(stream_text(response_content))
                         st.markdown(response_content, unsafe_allow_html=True)
@@ -860,7 +854,7 @@ else:
                         failed_response = True
                         assistant_response["content"] = response_content
 
-                elif is_summarize:
+                elif is_summarise:
                     summary = summarize(combined_query)
                     if summary:
                         response_content = f"**Summary:**\n{summary}"
@@ -934,7 +928,7 @@ else:
                             assistant_response["content"] = response_content
                             st.session_state.messages.append({"role": "assistant", "content": response_content})
                         else:
-                            response_content = f"**🔍 Key Information (Unsummarized):**\n{summarize_unstructured_answer(raw_result)}"
+                            response_content = f"🔍 Key Information (Unsummarized):\n{summarize_unstructured_answer(raw_result)}"
                             with response_placeholder:
                                 st.write_stream(stream_text(response_content))
                                 st.markdown(response_content, unsafe_allow_html=True)
@@ -955,7 +949,7 @@ else:
 
                 if failed_response:
                     suggestions = suggest_sample_questions(combined_query)
-                    response_content = "I am not sure about your question. Here are some questions you can ask me:\n\n"
+                    response_content = "I’m not sure about your question. Here are some questions you can ask me:\n\n"
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"{i}. {suggestion}\n"
                     response_content += "\nThese questions might help clarify your query. Feel free to try one or rephrase your question!"
