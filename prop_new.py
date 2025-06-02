@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import re
@@ -11,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import plotly.express as px
 import time
 import uuid
+import random
 
 # Snowflake/Cortex Configuration
 HOST = "GBJYVCT-LSB50763.snowflakecomputing.com"
@@ -302,59 +302,57 @@ def is_generic_query(query: str):
             len(query_lower.split()) < 3 or  # Too short to be meaningful
             not any(word in query_lower for word in ["property", "tenant", "lease", "rent", "occupancy", "maintenance"]))
 
-# Function to suggest follow-up questions based on the query
+# Function to suggest follow-up questions from sample questions
 def suggest_follow_up_questions(query: str) -> List[str]:
-    try:
-        query_lower = query.lower()
-        prompt = f"""
-        The user asked: '{query}'. Generate 3–5 clear, concise follow-up questions that logically extend the user's query, focusing on properties, leases, tenants, rent, or occupancy metrics. Format as a numbered list.
-        """
-        response = complete(st.session_state.model_name, prompt)
-        if response:
-            questions = []
-            for line in response.split("\n"):
-                line = line.strip()
-                if re.match(r'^\d+\.\s*.+', line):
-                    question = re.sub(r'^\d+\.\s*', '', line)
-                    questions.append(question)
-            return questions[:5]
-        # Fallback follow-up questions based on query context
-        if "occupied" in query_lower or "occupancy" in query_lower:
-            return [
-                "What is the occupancy rate by property type?",
-                "Which properties have been occupied the longest?",
-                "How does occupancy vary by location?",
-                "What are the vacancy rates for the past year?"
-            ]
-        elif "lease" in query_lower:
-            return [
-                "Which leases are expiring soon?",
-                "What are the lease terms for each property?",
-                "How many leases were signed this month?",
-                "Which tenants have renewed their leases?"
-            ]
-        elif "rent" in query_lower or "payment" in query_lower:
-            return [
-                "Which tenants have pending rent payments?",
-                "What is the average rent per property?",
-                "How does rent collection vary by month?",
-                "What is the total rent collected this year?"
-            ]
-        else:
-            return [
-                "What are the details of recent maintenance requests?",
-                "Which properties have the highest rental income?",
-                "How many tenants moved in this month?",
-                "What is the average lease duration?"
-            ]
-    except Exception as e:
-        st.error(f"❌ Failed to generate follow-up questions: {str(e)}")
-        return [
-            "Which properties have the highest occupancy rates?",
-            "What is the average rent collected per tenant?",
-            "Which leases expire in the next 30 days?",
-            "What’s the total rental income by property?"
-        ]
+    sample_questions = [
+        "What is Property Management?",
+        "Total number of properties currently occupied?",
+        "What is the number of properties by occupancy status?",
+        "What is the number of properties currently leased?",
+        "What are the supplier payments compared to customer billing by month?",
+        "What is the total number of suppliers?",
+        "What is the average supplier payment per property?",
+        "What are the details of lease execution, commencement, and termination?",
+        "What are the customer billing and supplier payment details by location and purpose?",
+        "What is the budget recovery by billing purpose?",
+        "What are the details of customer billing?",
+        "What are the details of supplier payments?"
+    ]
+    query_lower = query.lower()
+    # Keywords to match sample questions
+    keywords = {
+        "property": ["property"],
+        "occupancy": ["occupied", "occupancy"],
+        "lease": ["leased", "lease"],
+        "rent": ["rent", "billing", "payment"],
+        "supplier": ["supplier"],
+        "maintenance": ["maintenance"]
+    }
+    # Identify relevant categories based on query
+    relevant_categories = []
+    for category, category_keywords in keywords.items():
+        if any(keyword in query_lower for keyword in category_keywords):
+            relevant_categories.append(category)
+    
+    # Filter sample questions based on relevant categories
+    filtered_questions = []
+    for question in sample_questions:
+        question_lower = question.lower()
+        for category in relevant_categories:
+            if any(keyword in question_lower for keyword in keywords[category]):
+                filtered_questions.append(question)
+                break
+    
+    # If no relevant questions found, use all sample questions
+    if not filtered_questions:
+        filtered_questions = sample_questions
+    
+    # Randomly select 3–5 questions
+    num_questions = min(len(filtered_questions), 5)
+    if num_questions < 3:
+        num_questions = min(len(sample_questions), 5)  # Fallback to all sample questions
+        filtered_questions = sample_questions
+    return random.sample(filtered_questions, num_questions)
 
 if not st.session_state.authenticated:
     st.title("Welcome to Snowflake Cortex AI")
@@ -411,8 +409,8 @@ else:
                 align-items: center;
             }
             .header-content {
-                display: flex;
-                flex-direction: column;
+                flex: 1;
+                text-align: center;
             }
             .dilytics-logo {
                 width: 120px;
@@ -439,6 +437,7 @@ else:
         st.markdown(
             """
             <div class="fixed-header">
+                <div style="width: 120px;"></div> <!-- Placeholder to balance the layout -->
                 <div class="header-content">
                     <h1>Cortex AI-Property Management Assistant by DiLytics</h1>
                     <p>Semantic Model: `{semantic_model_filename}`</p>
@@ -872,8 +871,13 @@ else:
                 if not message["results"].empty and len(message["results"].columns) >= 2:
                     st.markdown("**📈 Visualization:**")
                     display_chart_tab(message["results"], prefix=f"chart_{hash(message['content'])}", query=message.get("query", ""))
-            # Display follow-up questions if available
-            if message["role"] == "assistant" and "follow_up_questions" in message:
+            # Display follow-up questions if available and user has asked a question
+            if (message["role"] == "assistant" and 
+                "follow_up_questions" in message and 
+                message.get("query") and 
+                not is_greeting_query(message.get("query", "")) and 
+                not is_generic_query(message.get("query", "")) and 
+                not is_question_suggestion_query(message.get("query", ""))):
                 st.markdown("**Follow-Up Questions:**")
                 for idx, follow_up in enumerate(message["follow_up_questions"]):
                     if st.button(follow_up, key=f"follow_up_{hash(message['content'])}_{idx}", help="Click to ask this follow-up question"):
@@ -1111,9 +1115,10 @@ else:
                     st.session_state.last_suggestions = suggestions
                     st.session_state.messages.append({"role": "assistant", "content": response_content})
 
-                # Generate and store follow-up questions for all responses
-                follow_up_questions = suggest_follow_up_questions(combined_query)
-                assistant_response["follow_up_questions"] = follow_up_questions
+                # Generate and store follow-up questions only for non-greeting, non-generic, non-suggestion queries
+                if not (is_greeting or is_generic or is_suggestion):
+                    follow_up_questions = suggest_follow_up_questions(combined_query)
+                    assistant_response["follow_up_questions"] = follow_up_questions
 
                 st.session_state.chat_history.append(assistant_response)
                 st.session_state.current_query = combined_query
@@ -1125,9 +1130,10 @@ else:
                 st.session_state.previous_results = assistant_response.get("results")
                 st.session_state.query = None
 
-                # Display follow-up questions as clickable buttons
-                st.markdown("**Follow-Up Questions:**")
-                for idx, follow_up in enumerate(follow_up_questions):
-                    if st.button(follow_up, key=f"follow_up_{hash(assistant_response['content'])}_{idx}", help="Click to ask this follow-up question"):
-                        st.session_state.query = follow_up
-                        st.session_state.show_greeting = False
+                # Display follow-up questions as clickable buttons if they exist
+                if not (is_greeting or is_generic or is_suggestion) and "follow_up_questions" in assistant_response:
+                    st.markdown("**Follow-Up Questions:**")
+                    for idx, follow_up in enumerate(follow_up_questions):
+                        if st.button(follow_up, key=f"follow_up_{hash(assistant_response['content'])}_{idx}", help="Click to ask this follow-up question"):
+                            st.session_state.query = follow_up
+                            st.session_state.show_greeting = False
