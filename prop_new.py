@@ -114,21 +114,25 @@ def stream_text(text: str, chunk_size: int = 2, delay: float = 0.04):
         yield text[i:i + chunk_size]
         time.sleep(delay)
 
+import uuid
+
 def submit_maintenance_request(property_id: str, tenant_name: str, issue_description: str):
     try:
-        # Generate a unique request ID by counting existing requests
-        request_count = session.sql("SELECT COUNT(*) AS CNT FROM MAINTENANCE_REQUESTS").collect()[0]["CNT"]
-        request_id = request_count + 1
+        # Generate a unique request ID using UUID
+        request_id = str(uuid.uuid4())
 
-        # Insert the maintenance request into the table
-        insert_query = f"""
-        INSERT INTO MAINTENANCE_REQUESTS (REQUEST_ID, PROPERTY_ID, TENANT_NAME, ISSUE_DESCRIPTION, SUBMITTED_AT, STATUS)
-        VALUES ({request_id}, '{property_id}', '{tenant_name}', '{issue_description}', CURRENT_TIMESTAMP(), 'PENDING')
+        # Use parameterized query to avoid SQL injection
+        insert_query = """
+        INSERT INTO MAINTENANCE_REQUESTS 
+        (REQUEST_ID, PROPERTY_ID, TENANT_NAME, ISSUE_DESCRIPTION, SUBMITTED_AT, STATUS)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP(), 'PENDING')
         """
-        session.sql(insert_query).collect()
-        return True, f"Maintenance request submitted successfully! Request ID: {request_id}"
+        session.sql(insert_query).bind((request_id, property_id, tenant_name, issue_description)).collect()
+
+        return True, f"📝 Maintenance request submitted successfully! Request ID: {request_id}"
     except Exception as e:
         return False, f"❌ Failed to submit maintenance request: {str(e)}"
+
 
 def start_new_conversation():
     st.session_state.chat_history = []
