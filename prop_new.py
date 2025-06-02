@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import json
 import re
@@ -117,6 +118,10 @@ st.markdown("""
     margin: 0 !important;
     border: none !important;
     padding: 0.5rem 1rem !important;
+}
+/* Hide the link symbol after the heading */
+[data-anchor] {
+    display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -276,7 +281,7 @@ def get_user_questions(limit=10):
     user_questions = [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "user"]
     return user_questions[-limit:][::-1]
 
-# New function to detect generic or unintelligible queries
+# Function to detect generic or unintelligible queries
 def is_generic_query(query: str):
     generic_patterns = [
         r'^\b(what|how|why|where|when)\b\s*$',  # e.g., "what", "how"
@@ -297,7 +302,7 @@ def is_generic_query(query: str):
             len(query_lower.split()) < 3 or  # Too short to be meaningful
             not any(word in query_lower for word in ["property", "tenant", "lease", "rent", "occupancy", "maintenance"]))
 
-# New function to suggest follow-up questions based on the query
+# Function to suggest follow-up questions based on the query
 def suggest_follow_up_questions(query: str) -> List[str]:
     try:
         query_lower = query.lower()
@@ -410,11 +415,23 @@ else:
                 flex-direction: column;
             }
             .dilytics-logo {
-                width: 150px;
-                height: auto;
+                width: 120px;
+                height: 40px;
+                object-fit: contain;
             }
             .main-content {
-                margin-top: 120px;
+                margin-top: 100px;
+            }
+            /* Adjust heading size to prevent overlap */
+            .fixed-header h1 {
+                font-size: 24px !important;
+                margin-bottom: 2px !important;
+                color: #29B5E8;
+            }
+            .fixed-header p {
+                font-size: 14px !important;
+                color: #333;
+                margin: 0 !important;
             }
             </style>
         """, unsafe_allow_html=True)
@@ -423,8 +440,8 @@ else:
             """
             <div class="fixed-header">
                 <div class="header-content">
-                    <h1 style='color: #29B5E8; margin-bottom: 5px;'>Cortex AI-Property Management Assistant by DiLytics</h1>
-                    <p style='font-size: 14px; color: #333; margin: 0;'>Semantic Model: `{semantic_model_filename}`</p>
+                    <h1>Cortex AI-Property Management Assistant by DiLytics</h1>
+                    <p>Semantic Model: `{semantic_model_filename}`</p>
                 </div>
                 <img src="https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png" class="dilytics-logo">
             </div>
