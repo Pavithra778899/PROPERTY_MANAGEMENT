@@ -657,6 +657,7 @@ else:
     with st.sidebar:
         st.markdown("""
         <style>
+        /* Default styling for sidebar buttons (suggested questions) */
         [data-testid="stSidebar"] [data-testid="stButton"] > button {
             background-color: #29B5E8 !important;
             color: white !important;
@@ -667,11 +668,12 @@ else:
             border: none !important;
             padding: 0.5rem 1rem !important;
         }
-        [data-testid="stSidebar"] [data-testid="stButton"][data-testid="clear_conversation_button"] > button,
+        /* Custom styling for Clear conversation, About, Help & Documentation, History, and Sample Questions buttons */
+        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Clear conversation"] > button,
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="About"] > button,
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Help & Documentation"] > button,
         [data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Show Sample Questions"] > button {
+        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Sample Questions"] > button {
             background-color: #28A745 !important;
             color: white !important;
             font-weight: normal !important;
@@ -680,17 +682,31 @@ else:
         </style>
         """, unsafe_allow_html=True)
 
-        try:
-            st.image("https://www.snowflake.com/wp-content/themes/snowflake/assets/img/logo-preview-blue.svg", width=100, output_format="auto", caption="Snowflake Logo", use_column_width=False)
-        except Exception as e:
-            st.error(f"Failed to load Snowflake logo: {str(e)}")
-            if st.session_state.debug_mode:
-                st.session_state.debug_logs["Snowflake Logo Error"] = str(e)
+        # 1. Snowflake Logo
+        logo_url = "https://www.snowflake.com/wp-content/themes/snowflake/assets/img/logo-blue.svg"
+        st.image(logo_url, width=250)
 
+        # 2. Clear Conversation Button
         if st.button("Clear conversation", key="clear_conversation_button"):
             start_new_conversation()
+
+        # 3. Select Data Source
         st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
+
+        # 4. Select Cortex Search Service
+        st.selectbox(
+            "Select Cortex Search Service:",
+            [CORTEX_SEARCH_SERVICES],
+            key="selected_cortex_search_service"
+        )
+
+        # 5. Debug
+        st.toggle("Debug", key="debug_mode", value=st.session_state.debug_mode)
+
+        # 6. Use Chat History
         st.toggle("Use chat history", key="use_chat_history", value=True)
+
+        # Advanced Options
         with st.expander("Advanced options"):
             st.selectbox("Select model:", MODELS, key="model_name")
             st.number_input(
@@ -701,49 +717,61 @@ else:
                 max_value=400
             )
             st.number_input(
-                "Number of messages to use in chat history",
+                "Select number of messages to use in chat history",
                 value=10,
                 key="num_chat_messages",
                 min_value=1,
                 max_value=100
             )
-        if st.button("Show Sample Questions", key="sample_questions_button"):
+        if st.session_state.debug_mode:
+            st.expander("Session State").write(st.session_state)
+
+        # 7. Sample Questions Button
+        if st.button("Sample Questions", key="sample_questions_button"):
             st.session_state.show_sample_questions = not st.session_state.get("show_sample_questions", False)
         if st.session_state.get("show_sample_questions", False):
             st.markdown("### Sample Questions")
             sample_questions = [
-                "What is the total number of occupied properties?",
-                "Which properties have pending maintenance requests?",
-                "What is the average rent per property by state?",
-                "How many tenants have leases expiring this month?",
-                "What is the occupancy rate by building?",
-                "Which properties have overdue rent payments?",
-                "What is the total maintenance cost by property?",
-                "Which tenants have submitted maintenance requests?",
-                "What is the average lease duration by property?",
-                "Which buildings have the highest occupancy rates?"
+                "What is Property Management",
+                "Total number of properties currently occupied?",
+                "What is the number of properties by occupancy status?",
+                "What is the number of properties currently leased?",
+                "What are the supplier payments compared to customer billing by month?",
+                "What is the total number of suppliers?",
+                "What is the average supplier payment per property?",
+                "What are the details of lease execution, commencement, and termination?",
+                "What are the customer billing and supplier payment details by location and purpose?",
+                "What is the budget recovery by billing purpose?",
+                "What are the details of customer billing?",
+                "What are the details of supplier payments?"
             ]
             for sample in sample_questions:
-                if st.button(sample, key=f"sample_{sample}"):
+                if st.button(sample, key=f"sidebar_{sample}"):
                     st.session_state.query = sample
                     st.session_state.show_greeting = False
+
+        # Maintenance Request Submission
         with st.expander("Submit Maintenance Request"):
             st.markdown("### Submit a Maintenance Request")
             property_id = st.text_input("Property ID", key="maint_property_id")
-            tenant_name = st.text_input("Tenant Name", key="tenant_name")
-            issue_description = st.text_area("Issue Description", key="issue_description")
-            if st.button("Submit Request", key="submit_maintenance"):
+            tenant_name = st.text_input("Tenant Name", key="maint_tenant_name")
+            issue_description = st.text_area("Issue Description", key="maint_issue_description")
+            if st.button("Submit Request", key="submit_maintenance_request"):
                 if not property_id or not tenant_name or not issue_description:
-                    st.error("Please fill in all fields to submit a maintenance request.")
+                    st.error("❌ Please fill in all fields to submit a maintenance request.")
                 else:
                     success, message = submit_maintenance_request(property_id, tenant_name, issue_description)
                     if success:
                         st.success(message)
                     else:
                         st.error(message)
+
+        # Divider
         st.markdown("---")
+
+        # History, About, Help & Documentation
         with st.container():
-            if st.button("History", key="history"):
+            if st.button("History", key="history_button"):
                 toggle_history()
             if st.session_state.show_history:
                 st.markdown("### Recent Questions")
@@ -755,25 +783,26 @@ else:
                         if st.button(question, key=f"history_{idx}"):
                             st.session_state.query = question
                             st.session_state.show_greeting = False
-            if st.button("About", key="about"):
+
+            if st.button("About", key="about_button"):
                 toggle_about()
             if st.session_state.show_about:
                 st.markdown("### About")
                 st.write(
-                    "This application uses **Snowflake Cortex AI** to interpret "
-                    "natural language questions and generate property management insights. "
-                    "Ask about properties, tenants, maintenance, or procurement data to see answers and visualizations."
+                    "This application uses **Snowflake Cortex Analyst** to interpret "
+                    "your natural language questions and generate data insights. "
+                    "Simply ask a question below to see relevant answers and visualizations."
                 )
-            if st.button("Help & Documentation", key="help"):
+
+            if st.button("Help & Documentation", key="help_button"):
                 toggle_help()
             if st.session_state.show_help:
                 st.markdown("### Help & Documentation")
                 st.write(
                     "- [User Guide](https://docs.snowflake.com/en/guides-overview-ai-features)  \n"
-                    "- [Snowflake Cortex AI Docs](https://docs.snowflake.com/)  \n"
+                    "- [Snowflake Cortex Analyst Docs](https://docs.snowflake.com/)  \n"
                     "- [Contact Support](https://www.snowflake.com/en/support/)"
                 )
-
     # Main UI
     if st.session_state.authenticated:
         try:
