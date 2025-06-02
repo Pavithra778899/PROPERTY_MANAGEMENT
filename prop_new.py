@@ -101,10 +101,43 @@ if "show_sample_questions" not in st.session_state:
 # Hide Streamlit branding noted in earlier conversation and prevent chat history shading
 st.markdown("""
 <style>
+/* Hide Streamlit branding and prevent chat history shading */
 #MainMenu, header, footer {visibility: hidden;}
 [data-testid="stChatMessage"] {
     opacity: 1 !important;
     background-color: transparent !important;
+}
+
+/* Fix the heading at the top */
+[data-testid="stAppViewContainer"] > div:first-child > div:first-child {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: white;
+    z-index: 9999;
+    padding: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Ensure content below the fixed heading isn't overlapped */
+[data-testid="stAppViewContainer"] > div:first-child {
+    padding-top: 80px !important; /* Adjust based on your heading height */
+}
+
+/* Remove any like icon or similar elements after the heading */
+[data-testid="stAppViewContainer"] > div:first-child > div:first-child [data-testid="stButton"],
+[data-testid="stAppViewContainer"] > div:first-child > div:first-child [data-testid="stChatMessageActions"] {
+    display: none !important;
+}
+
+/* Style and position the Dilytics logo in the top-right corner */
+.dilytics-logo {
+    position: fixed !important;
+    top: 10px;
+    right: 10px;
+    width: 150px; /* Adjust the size as needed */
+    z-index: 10000;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -708,6 +741,7 @@ else:
                 )
 
     st.title("Cortex AI-Property Management Assistant by DiLytics")
+    st.image("https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png", use_column_width=False, output_format="PNG", caption="", width=150, clamp=False, channels="RGB", output_format="auto", image_align="right", **{"class": "dilytics-logo"})
     semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
     st.markdown(f"Semantic Model: `{semantic_model_filename}`")
 
