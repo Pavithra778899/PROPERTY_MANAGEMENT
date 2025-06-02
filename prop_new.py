@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import re
@@ -32,7 +31,7 @@ MODELS = [
 
 # Streamlit Page Config
 st.set_page_config(
-    page_title="Welcome to Cortex AI Assistant",
+    page_title="Cortex AI Assistant",
     layout="wide",
     initial_sidebar_state="auto"
 )
@@ -101,33 +100,163 @@ if "previous_results" not in st.session_state:
 if "show_sample_questions" not in st.session_state:
     st.session_state.show_sample_questions = False
 
-# Hide Streamlit branding and prevent chat history shading
+# Custom CSS for a modern, attractive interface
 st.markdown("""
 <style>
-#MainMenu, header, footer {visibility: hidden;}
-[data-testid="stChatMessage"] {
-    opacity: 1 !important;
-    background-color: transparent !important;
+/* Import Google Fonts for a modern look */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+/* General styling */
+body {
+    font-family: 'Roboto', sans-serif !important;
+    background-color: #F5F7FA !important;
+    color: #333333 !important;
 }
-/* Styling for follow-up question buttons */
-.follow-up-button {
-    background-color: #29B5E8 !important;
-    color: white !important;
-    font-weight: bold !important;
-    width: 100% !important;
-    border-radius: 0px !important;
+
+/* Hide Streamlit branding */
+#MainMenu, header, footer { visibility: hidden; }
+
+/* Header styling */
+.fixed-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(90deg, #1E88E5 0%, #42A5F5 100%) !important;
+    z-index: 1001 !important;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.header-content {
+    flex: 1;
+    text-align: center;
+}
+.fixed-header h1 {
+    font-size: 26px !important;
+    font-weight: 500 !important;
+    color: #FFFFFF !important;
+    margin-bottom: 5px !important;
+}
+.fixed-header p {
+    font-size: 14px !important;
+    font-weight: 300 !important;
+    color: #E3F2FD !important;
     margin: 0 !important;
-    border: none !important;
-    padding: 0.5rem 1rem !important;
 }
+.dilytics-logo {
+    width: 120px;
+    height: 40px;
+    object-fit: contain;
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background-color: #FFFFFF !important;
+    border-right: 1px solid #E0E0E0 !important;
+    padding: 20px !important;
+    margin-top: 80px !important;
+    z-index: 99 !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] > button {
+    background-color: #1E88E5 !important;
+    color: #FFFFFF !important;
+    font-weight: 500 !important;
+    width: 100% !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    margin-bottom: 10px !important;
+    transition: background-color 0.3s ease;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
+    background-color: #1565C0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="Clear conversation"] > button,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="Sample Questions"] > button,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="About"] > button,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="Help & Documentation"] > button,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > button {
+    background-color: #43A047 !important;
+    border: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="Clear conversation"] > button:hover,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="Sample Questions"] > button:hover,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="About"] > button:hover,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="Help & Documentation"] > button:hover,
+[data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > button:hover {
+    background-color: #388E3C !important;
+}
+
+/* Main content styling */
+.main-content {
+    margin-top: 100px !important;
+    padding: 20px 30px;
+    background-color: #F5F7FA !important;
+}
+
+/* Chat message styling */
+[data-testid="stChatMessage"] {
+    background-color: #FFFFFF !important;
+    border-radius: 12px !important;
+    padding: 15px !important;
+    margin-bottom: 15px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid #E0E0E0 !important;
+}
+[data-testid="stChatMessage"][data-testid="chatAvatarIcon-user"] {
+    border-left: 4px solid #1E88E5 !important;
+}
+[data-testid="stChatMessage"][data-testid="chatAvatarIcon-assistant"] {
+    border-left: 4px solid #43A047 !important;
+}
+
+/* Follow-up buttons */
+.follow-up-button {
+    background-color: #1E88E5 !important;
+    color: #FFFFFF !important;
+    font-weight: 500 !important;
+    width: 100% !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    margin-bottom: 10px !important;
+    transition: background-color 0.3s ease;
+}
+.follow-up-button:hover {
+    background-color: #1565C0 !important;
+}
+
+/* Expander styling */
+[data-testid="stExpander"] {
+    border: 1px solid #E0E0E0 !important;
+    border-radius: 8px !important;
+    background-color: #FFFFFF !important;
+}
+
+/* Input and selectbox styling */
+.stTextInput > div > div > input,
+.stSelectbox > div > div > select {
+    border-radius: 8px !important;
+    border: 1px solid #B0BEC5 !important;
+    padding: 8px !important;
+}
+.stTextInput > div > div > input:focus,
+.stSelectbox > div > div > select:focus {
+    border-color: #1E88E5 !important;
+    box-shadow: 0 0 5px rgba(30, 136, 229, 0.3) !important;
+}
+
+/* Dataframe and chart styling */
+[data-testid="stDataFrame"] {
+    border: 1px solid #E0E0E0 !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+}
+
 /* Hide the link symbol after the heading */
 [data-anchor] {
     display: none !important;
-}
-/* Ensure sidebar doesn't overlap the header */
-[data-testid="stSidebar"] {
-    z-index: 99 !important;
-    margin-top: 80px !important;  /* Adjust based on header height */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -399,55 +528,13 @@ else:
 
     # Set up main interface with fixed header, semantic model display, and logo on top right
     with st.container():
-        st.markdown("""
-            <style>
-            .fixed-header {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                background-color: white;
-                z-index: 1001 !important;  /* Increased z-index to stay above sidebar */
-                padding: 15px 20px;  /* Added padding for better spacing */
-                border-bottom: 1px solid #e0e0e0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* Added shadow for depth */
-            }
-            .header-content {
-                flex: 1;
-                text-align: center;
-            }
-            .dilytics-logo {
-                width: 120px;
-                height: 40px;
-                object-fit: contain;
-            }
-            .main-content {
-                margin-top: 100px !important;  /* Increased margin to ensure content is not hidden */
-            }
-            /* Adjust heading size to prevent overlap */
-            .fixed-header h1 {
-                font-size: 24px !important;
-                margin-bottom: 2px !important;
-                color: #29B5E8;
-            }
-            .fixed-header p {
-                font-size: 14px !important;
-                color: #333;
-                margin: 0 !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
         st.markdown(
             """
             <div class="fixed-header">
                 <div style="width: 120px;"></div> <!-- Placeholder to balance the layout -->
                 <div class="header-content">
-                    <h1>Cortex AI-Property Management Assistant by DiLytics</h1>
-                    <p>Semantic Model: `{semantic_model_filename}`</p>
+                    <h1>Cortex AI - Property Management Assistant</h1>
+                    <p>Powered by DiLytics | Semantic Model: `{semantic_model_filename}`</p>
                 </div>
                 <img src="https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png" class="dilytics-logo">
             </div>
@@ -732,34 +819,9 @@ else:
         st.session_state.show_help = False
 
     with st.sidebar:
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] [data-testid="stButton"] > button {
-            background-color: #29B5E8 !important;
-            color: white !important;
-            font-weight: bold !important;
-            width: 100% !important;
-            border-radius: 0px !important;
-            margin: 0 !important;
-            border: none !important;
-            padding: 0.5rem 1rem !important;
-        }
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Clear conversation"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Sample Questions"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="About"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="Help & Documentation"] > button,
-        [data-testid="stSidebar"] [data-testid="stButton"][aria-label="History"] > button {
-            background-color: #28A745 !important;
-            color: white !important;
-            font-weight: normal !important;
-            border: 1px solid #28A745 !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
         logo_url = "https://www.snowflake.com/wp-content/themes/snowflake/assets/img/logo-blue.svg"
-        st.image(logo_url, width=250)
-        if st.button("Clear conversation", key="clear_conversation_button"):
+        st.image(logo_url, width=200)
+        if st.button("Clear Conversation", key="clear_conversation_button"):
             start_new_conversation()
         st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
         st.selectbox(
@@ -767,19 +829,19 @@ else:
             [CORTEX_SEARCH_SERVICES],
             key="selected_cortex_search_service"
         )
-        st.toggle("Debug", key="debug_mode", value=st.session_state.debug_mode)
-        st.toggle("Use chat history", key="use_chat_history", value=True)
-        with st.expander("Advanced options"):
-            st.selectbox("Select model:", MODELS, key="model_name")
+        st.toggle("Debug Mode", key="debug_mode", value=st.session_state.debug_mode)
+        st.toggle("Use Chat History", key="use_chat_history", value=True)
+        with st.expander("Advanced Options"):
+            st.selectbox("Select Model:", MODELS, key="model_name")
             st.number_input(
-                "Select number of context chunks",
+                "Number of Context Chunks",
                 value=100,
                 key="num_retrieved_chunks",
                 min_value=1,
                 max_value=400
             )
             st.number_input(
-                "Select number of messages to use in chat history",
+                "Number of Chat Messages",
                 value=10,
                 key="num_chat_messages",
                 min_value=1,
@@ -795,15 +857,8 @@ else:
                 "What is Property Management?",
                 "Total number of properties currently occupied?",
                 "What is the number of properties by occupancy status?",
-                "What is the number of properties currently leased?",
                 "What are the supplier payments compared to customer billing by month?",
-                "What is the total number of suppliers?",
-                "What is the average supplier payment per property?",
-                "What are the details of lease execution, commencement, and termination?",
-                "What are the customer billing and supplier payment details by location and purpose?",
-                "What is the budget recovery by billing purpose?",
-                "What are the details of customer billing?",
-                "What are the details of supplier payments?"
+                "What are the details of lease execution, commencement, and termination?"
             ]
             for sample in sample_questions:
                 if st.button(sample, key=f"sidebar_{sample}"):
@@ -863,7 +918,7 @@ else:
                 )
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
-        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property management. Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started!")
+        st.markdown("Welcome to Cortex AI! I’m here to assist you with property management. 🏠 Ask about your rent, leases, or submit a maintenance request to get started!")
     else:
         st.session_state.show_greeting = False
 
