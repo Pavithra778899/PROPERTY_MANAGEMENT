@@ -597,11 +597,11 @@ else:
         st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
 
         # 4. Select Cortex Search Service
-        st.selectbox(
-            "Select Cortex Search Service:",
-            [CORTEX_SEARCH_SERVICES],
-            key="selected_cortex_search_service"
-        )
+        #st.selectbox(
+           # "Select Cortex Search Service:",
+            #[CORTEX_SEARCH_SERVICES],
+            #key="selected_cortex_search_service"
+        #)
 
         # 5. Debug
         st.toggle("Debug", key="debug_mode", value=st.session_state.debug_mode)
