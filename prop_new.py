@@ -1,3 +1,4 @@
+
 import streamlit as st
 import json
 import re
@@ -122,6 +123,11 @@ st.markdown("""
 /* Hide the link symbol after the heading */
 [data-anchor] {
     display: none !important;
+}
+/* Ensure sidebar doesn't overlap the header */
+[data-testid="stSidebar"] {
+    z-index: 99 !important;
+    margin-top: 80px !important;  /* Adjust based on header height */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -401,12 +407,13 @@ else:
                 left: 0;
                 right: 0;
                 background-color: white;
-                z-index: 1000;
-                padding: 10px 20px;
+                z-index: 1001 !important;  /* Increased z-index to stay above sidebar */
+                padding: 15px 20px;  /* Added padding for better spacing */
                 border-bottom: 1px solid #e0e0e0;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* Added shadow for depth */
             }
             .header-content {
                 flex: 1;
@@ -418,7 +425,7 @@ else:
                 object-fit: contain;
             }
             .main-content {
-                margin-top: 100px;
+                margin-top: 100px !important;  /* Increased margin to ensure content is not hidden */
             }
             /* Adjust heading size to prevent overlap */
             .fixed-header h1 {
