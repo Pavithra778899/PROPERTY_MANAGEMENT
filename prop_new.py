@@ -9,6 +9,7 @@ from snowflake.core import Root
 from typing import Any, Dict, List, Optional, Tuple
 import plotly.express as px
 import time
+import uuid
 
 # Snowflake/Cortex Configuration
 HOST = "GBJYVCT-LSB50763.snowflakecomputing.com"
@@ -98,15 +99,59 @@ if "previous_results" not in st.session_state:
 if "show_sample_questions" not in st.session_state:
     st.session_state.show_sample_questions = False
 
-# Hide Streamlit branding noted in earlier conversation and prevent chat history shading
-st.markdown
+# Add CSS to fix the heading, position the logo, and remove the like icon
+st.markdown("""
+<style>
+/* Hide Streamlit branding and prevent chat history shading */
+#MainMenu, header, footer {visibility: hidden;}
+[data-testid="stChatMessage"] {
+    opacity: 1 !important;
+    background-color: transparent !important;
+}
+
+/* Fix the heading container at the top */
+div[data-testid="stVerticalBlock"] > div:nth-child(2) {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: white;
+    z-index: 9999;
+    padding: 1rem 1rem 0.5rem 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Adjust content below the fixed heading to avoid overlap */
+div[data-testid="stVerticalBlock"] > div:nth-child(n+3) {
+    padding-top: 100px !important; /* Adjust based on heading height */
+}
+
+/* Remove any like icons or action buttons in the chat messages */
+[data-testid="stChatMessageActions"],
+[data-testid="stChatMessage"] [data-testid="stButton"] {
+    display: none !important;
+}
+
+/* Style and position the Dilytics logo in the top-right corner */
+.dilytics-logo {
+    position: fixed !important;
+    top: 10px;
+    right: 10px;
+    width: 150px; /* Adjust size as needed */
+    z-index: 10000; /* Ensure it stays above other elements */
+}
+
+/* Ensure the sidebar is not overlapped by the fixed heading */
+[data-testid="stSidebar"] {
+    margin-top: 100px !important; /* Match the padding-top of the main content */
+}
+</style>
+""", unsafe_allow_html=True)
 
 def stream_text(text: str, chunk_size: int = 2, delay: float = 0.04):
     for i in range(0, len(text), chunk_size):
         yield text[i:i + chunk_size]
         time.sleep(delay)
-
-import uuid
 
 def submit_maintenance_request(property_id: str, tenant_name: str, issue_description: str):
     try:
@@ -124,7 +169,6 @@ def submit_maintenance_request(property_id: str, tenant_name: str, issue_descrip
         return True, f"📝 Maintenance request submitted successfully! Request ID: {request_id}"
     except Exception as e:
         return False, f"❌ Failed to submit maintenance request: {str(e)}"
-
 
 def start_new_conversation():
     st.session_state.chat_history = []
@@ -156,6 +200,7 @@ def init_service_metadata():
         st.error(f"❌ Failed to verify AI.DWH_MART.PROPERTYMANAGEMENT: {str(e)}. Using default configuration.")
         if st.session_state.debug_mode:
             st.session_state.debug_logs["Service Metadata Error"] = str(e)
+
 def init_config_options():
     pass
 
@@ -316,7 +361,7 @@ else:
             columns = df.schema.names
             result_df = pd.DataFrame(data, columns=columns)
             if st.session_state.debug_mode:
-                st.sidebar.text_area("Query Results", result_df.to_string(), height=200)
+                groe.sidebar.text_area("Query Results", result_df.to_string(), height=200)
             return result_df
         except Exception as e:
             st.error(f"❌ SQL Execution Error: {str(e)}")
@@ -699,16 +744,18 @@ else:
                     "- [Contact Support](https://www.snowflake.com/en/support/)"
                 )
 
-    st.title("Cortex AI-Property Management Assistant by DiLytics")
-    semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
-    st.markdown(f"Semantic Model: `{semantic_model_filename}`")
-# Add the logo
-    st.image(
-              "https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png",
-               width=150,
-               output_format="PNG",
-               **{"class": "dilytics-logo"}
-)
+    # Main content area
+    # Create a container for the heading and logo to keep them together
+    with st.container():
+        st.title("Cortex AI-Property Management Assistant by DiLytics")
+        semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
+        st.markdown(f"Semantic Model: `{semantic_model_filename}`")
+        st.image(
+            "https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png",
+            width=150,
+            output_format="PNG",
+            **{"class": "dilytics-logo"}
+        )
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
         st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property management. Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started! — simply type your question to get started.")
