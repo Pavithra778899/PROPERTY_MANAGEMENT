@@ -311,6 +311,48 @@ else:
     session = st.session_state.snowpark_session
     root = Root(session)
 
+    # Set up main interface with fixed header, semantic model display, and logo on top right
+    with st.container():
+        st.markdown(
+            """
+            <style>
+            .fixed-header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background-color: white;
+                z-index: 1000;
+                padding: 10px 20px;
+                border-bottom: 1px solid #e0e0e0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .header-content {
+                display: flex;
+                flex-direction: column;
+            }
+            .dilytics-logo {
+                width: 150px;
+                height: auto;
+            }
+            .main-content {
+                margin-top: 120px; /* Adjust based on header height */
+            }
+            </style>
+            <div class="fixed-header">
+                <div class="header-content">
+                    <h1 style='color: #29B5E8; margin-bottom: 5px;'>Cortex AI-Property Management Assistant by DiLytics</h1>
+                    <p style='font-size: 14px; color: #333; margin: 0;'>Semantic Model: `{semantic_model_filename}`</p>
+                </div>
+                <img src="https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png" class="dilytics-logo">
+            </div>
+            <div class="main-content"></div>
+            """.format(semantic_model_filename=SEMANTIC_MODEL.split("/")[-1]),
+            unsafe_allow_html=True
+        )
+
     def run_snowflake_query(query):
         try:
             if not query:
