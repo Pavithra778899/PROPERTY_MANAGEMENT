@@ -133,7 +133,6 @@ def submit_maintenance_request(property_id: str, tenant_name: str, issue_descrip
     except Exception as e:
         return False, f"❌ Failed to submit maintenance request: {str(e)}"
 
-
 def start_new_conversation():
     st.session_state.chat_history = []
     st.session_state.messages = []
@@ -164,6 +163,7 @@ def init_service_metadata():
         st.error(f"❌ Failed to verify AI.DWH_MART.PROPERTYMANAGEMENT: {str(e)}. Using default configuration.")
         if st.session_state.debug_mode:
             st.session_state.debug_logs["Service Metadata Error"] = str(e)
+
 def init_config_options():
     pass
 
@@ -748,10 +748,6 @@ else:
                     "- [Snowflake Cortex Analyst Docs](https://docs.snowflake.com/)  \n"
                     "- [Contact Support](https://www.snowflake.com/en/support/)"
                 )
-
-    st.title("Cortex AI-Property Management Assistant by DiLytics")
-    semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
-    st.markdown(f"Semantic Model: `{semantic_model_filename}`")
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
         st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property management. Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started! — simply type your question to get started.")
