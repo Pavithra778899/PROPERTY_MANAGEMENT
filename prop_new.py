@@ -402,7 +402,7 @@ else:
         ]
         return any(re.search(pattern, query.lower()) for pattern in suggestion_patterns)
 
-    def is_generic_query(query: str) -> bool:
+    def is_generic_query(query: str):
     generic_patterns = [
         r'^\s*(hi|hello|hey|greetings)\s*$',
         r'\bhow are you\b',
