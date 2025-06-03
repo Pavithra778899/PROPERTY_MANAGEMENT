@@ -7,9 +7,9 @@ import pandas as pd
 from snowflake.snowpark import Session
 from snowflake.core import Root
 from typing import Any, Dict, List, Optional, Tuple
-import plotly.express as px
 import time
 import uuid
+import retrying
 
 # --- Snowflake/Cortex Configuration ---
 HOST = "HLGSIYM-COB42429.snowflakecomputing.com"
@@ -17,7 +17,7 @@ DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000
-CORTEX_SEARCH_SERVICES = "AI.DWH_MART.propertymanagement"
+CORTEX_SEARCH_SERVICES = "AI.DWH_MART.PROPERTYMANAGEMENT"
 SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management.yaml'
 
 # --- Model Options ---
@@ -236,15 +236,17 @@ def query_cortex_search_service(query):
             .schemas[schema]
             .cortex_search_services["AI.DWH_MART.PROPERTYMANAGEMENT"]
         )
+        desc_result = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()
+        columns = [row["search_column"] for row in desc_result] if desc_result else []
         context_documents = cortex_search_service.search(
-            query, columns=[], limit=st.session_state.num_retrieved_chunks
+            query, columns=columns or [], limit=st.session_state.num_retrieved_chunks
         )
         results = context_documents.results
         service_metadata = st.session_state.service_metadata
-        search_col = service_metadata[0]["search_column"]
+        search_col = service_metadata[0]["search_column"] or columns[0] if columns else ""
         context_str = ""
         for i, r in enumerate(results):
-            context_str += f"Context document {i+1}: {r[search_col]} \n" + "\n"
+            context_str += f"Context document {i+1}: {r.get(search_col, '')} \n" + "\n"
         return context_str
     except Exception as e:
         st.error(f"❌ Error querying Cortex Search service: {str(e)}")
@@ -255,22 +257,24 @@ def get_chat_history():
     return st.session_state.chat_history[start_index : len(st.session_state.chat_history) - 1]
 
 def make_chat_history_summary(chat_history, question):
-    # Combine chat messages into a readable history string
     chat_history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history])
-
-    # Instruction prompt for resolving follow-up questions into standalone queries
     prompt = f"""
 [INST]
-You are a smart assistant helping users ask clear questions based on a conversation. Rewrite the latest question into a standalone, complete query using the chat history for context.
+You are an AI assistant specializing in property management queries. Rewrite the latest user question into a clear, standalone query by incorporating relevant context from the chat history. Ensure the rewritten query is precise, complete, and reflects the user's intent, avoiding ambiguity. Focus on property-related terms (e.g., leases, tenants, rent, occupancy).
 
 Examples:
-- If chat history is:
+- Chat history: 
   user: What is the total number of leases?
-  assistant: 150
+  assistant: There are 150 leases.
   user: by region
-  Then generate: "What is the total number of leases by region?"
+  Rewritten query: What is the total number of leases by region?
+- Chat history:
+  user: List properties with high occupancy.
+  assistant: Properties with occupancy above 90% are listed.
+  user: for last year
+  Rewritten query: List properties with high occupancy for last year.
 
-Use this format for the input:
+Input format:
 <chat_history>
 {chat_history_str}
 </chat_history>
@@ -278,17 +282,12 @@ Use this format for the input:
 {question}
 </question>
 
-Answer with only the full rewritten question.
+Output only the rewritten standalone query.
 [/INST]
 """
-
-    # Send prompt to completion function
     summary = complete(st.session_state.model_name, prompt.strip())
-
-    # Debug mode visibility
     if st.session_state.debug_mode:
-        st.sidebar.text_area("Resolved Question", summary.replace("$", "\$"), height=150)
-
+        st.sidebar.text_area("Resolved Question", summary.replace("$", "\\$"), height=150)
     return summary.strip()
 
 def create_prompt(user_question):
@@ -309,20 +308,21 @@ def create_prompt(user_question):
         return complete(st.session_state.model_name, user_question)
     
     prompt = f"""
-        [INST]
-        You are a helpful AI chat assistant for property management. Use the provided context and chat history to provide a coherent, concise, and relevant answer to the user's question.
-        <chat_history>
-        {chat_history_str}
-        </chat_history>
-        <context>
-        {prompt_context}
-        </context>
-        <question>
-        {user_question}
-        </question>
-        [/INST]
-        Answer:
-    """
+[INST]
+You are a property management AI assistant. Provide a concise, accurate answer to the user's question using the provided context and chat history. Focus on delivering relevant insights about properties, leases, tenants, or occupancy.
+
+<chat_history>
+{chat_history_str}
+</chat_history>
+<context>
+{prompt_context}
+</context>
+<question>
+{user_question}
+</question>
+[/INST]
+Answer:
+"""
     return complete(st.session_state.model_name, prompt)
 
 def get_user_questions(limit=10):
@@ -403,22 +403,24 @@ else:
         return any(re.search(pattern, query.lower()) for pattern in suggestion_patterns)
 
     def is_greeting_query(query: str):
-        greeting_patterns = [r'^\s*(hi|hello|hey|greetings)\s*$',
-        r'\bhow are you\b',
-        r'\bhow’s it going\b',
-        r'\bwhat’s up\b',
-        r'\bgood (morning|afternoon|evening)\b',
-        r'\bthank(s| you)\b',
-        r'\bwho are you\b',
-        r'\bwhat can you do\b',
-        r'\bwhat do you offer\b',
-        r'\bhow can you help\b',
-        r'\bwhat can i get from you\b',
-        r'\bwhat can i display\b',
-        r'\bhelp\b',
-        r'\bstart over\b',
-        r'\bwhat is this (app|assistant|tool)\b',
-        r'\btell me about yourself\b']
+        greeting_patterns = [
+            r'^\s*(hi|hello|hey|greetings)\s*$',
+            r'\bhow are you\b',
+            r'\bhow’s it going\b',
+            r'\bwhat’s up\b',
+            r'\bgood (morning|afternoon|evening)\b',
+            r'\bthank(s| you)\b',
+            r'\bwho are you\b',
+            r'\bwhat can you do\b',
+            r'\bwhat do you offer\b',
+            r'\bhow can you help\b',
+            r'\bwhat can i get from you\b',
+            r'\bwhat can i display\b',
+            r'\bhelp\b',
+            r'\bstart over\b',
+            r'\bwhat is this (app|assistant|tool)\b',
+            r'\btell me about yourself\b'
+        ]
         return any(re.search(pattern, query.lower()) for pattern in greeting_patterns)
 
     def complete(model, prompt):
@@ -482,6 +484,11 @@ else:
                                         search_results = [sr["text"] for sr in result_data["searchResults"]]
         return sql.strip(), search_results
 
+    @retrying.retry(
+        stop_max_attempt_number=3,
+        wait_exponential_multiplier=1000,
+        wait_exponential_max=10000
+    )
     def snowflake_api_call(query: str, is_structured: bool = False):
         payload = {
             "model": st.session_state.model_name,
@@ -506,14 +513,13 @@ else:
             )
             if resp.status_code < 400:
                 if not resp.text.strip():
-                    st.error("❌ API returned an empty response.")
-                    return None
+                    raise Exception("API returned an empty response.")
                 return parse_sse_response(resp.text)
             else:
                 raise Exception(f"Failed request with status {resp.status_code}: {resp.text}")
         except Exception as e:
             st.error(f"❌ API Request Error: {str(e)}")
-            return None
+            raise
 
     def summarize_unstructured_answer(answer):
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|")\s', answer)
@@ -552,9 +558,12 @@ else:
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
+        """Display a chart based on query results with user-selected options using Chart.js."""
         try:
             if df is None or df.empty or len(df.columns) < 2:
                 st.warning("No valid data available for visualization.")
+                if st.session_state.debug_mode:
+                    st.sidebar.warning(f"Chart Data Issue: df={df}, columns={df.columns if df is not None else 'None'}")
                 return
             query_lower = query.lower()
             if re.search(r'\b(county|jurisdiction)\b', query_lower):
@@ -570,23 +579,72 @@ else:
             y_col = col2.selectbox("Y axis", remaining_cols, index=0, key=f"{prefix}_y")
             chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
             chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
-            if chart_type == "Line Chart":
-                fig = px.line(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_line")
-            elif chart_type == "Bar Chart":
-                fig = px.bar(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_bar")
-            elif chart_type == "Pie Chart":
-                fig = px.pie(df, names=x_col, values=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_pie")
-            elif chart_type == "Scatter Chart":
-                fig = px.scatter(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_scatter")
-            elif chart_type == "Histogram Chart":
-                fig = px.histogram(df, x=x_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_hist")
+            if st.session_state.debug_mode:
+                st.sidebar.text_area("Chart Config", f"X: {x_col}, Y: {y_col}, Type: {chart_type}", height=100)
+
+            # Prepare data for Chart.js
+            x_data = df[x_col].astype(str).tolist()
+            y_data = df[y_col].tolist()
+
+            # Map chart types to Chart.js types
+            chartjs_type = {
+                "Line Chart": "line",
+                "Bar Chart": "bar",
+                "Pie Chart": "pie",
+                "Scatter Chart": "scatter",
+                "Histogram Chart": "bar"
+            }.get(chart_type, "bar")
+
+            # Configure Chart.js options
+            chart_config = {
+                "type": chartjs_type,
+                "data": {
+                    "labels": x_data,
+                    "datasets": [{
+                        "label": y_col,
+                        "data": y_data if chart_type != "Pie Chart" else [dict(name=x, value=y) for x, y in zip(x_data, y_data)],
+                        "backgroundColor": [
+                            "rgba(54, 162, 235, 0.6)",
+                            "rgba(255, 99, 132, 0.6)",
+                            "rgba(75, 192, 192, 0.6)",
+                            "rgba(255, 206, 86, 0.6)",
+                            "rgba(153, 102, 255, 0.6)"
+                        ][:len(x_data)] if chart_type == "Pie Chart" else "rgba(54, 162, 235, 0.6)",
+                        "borderColor": "rgba(54, 162, 235, 1)",
+                        "borderWidth": 1
+                    }]
+                },
+                "options": {
+                    "responsive": true,
+                    "plugins": {
+                        "legend": {"display": chart_type in ["Pie Chart", "Line Chart"]},
+                        "title": {"display": True, "text": chart_type}
+                    },
+                    "scales": {} if chart_type in ["Pie Chart"] else {
+                        "x": {"title": {"display": True, "text": x_col}},
+                        "y": {"title": {"display": True, "text": y_col}}
+                    }
+                }
+            }
+
+            # Special handling for Histogram
+            if chart_type == "Histogram Chart":
+                bins = pd.cut(df[x_col], bins=10, retbins=True)[1]
+                hist_data = pd.cut(df[x_col], bins=bins).value_counts().sort_index()
+                chart_config["data"]["labels"] = [f"{b:.2f}" for b in bins[:-1]]
+                chart_config["data"]["datasets"][0]["data"] = hist_data.tolist()
+                chart_config["options"]["scales"]["x"]["title"]["text"] = f"{x_col} Bins"
+
+            # Display Chart.js chart
+            st.markdown(f"**📈 {chart_type}**")
+            ```chartjs
+            {json.dumps(chart_config, indent=2)}
+            ```
+
         except Exception as e:
             st.error(f"❌ Error generating chart: {str(e)}")
+            if st.session_state.debug_mode:
+                st.sidebar.error(f"Chart Error Details: {str(e)}")
 
     def toggle_about():
         st.session_state.show_about = not st.session_state.show_about
@@ -613,7 +671,7 @@ else:
         st.selectbox(
             "Select Cortex Search Service:",
             [CORTEX_SEARCH_SERVICES],
-            index=0,  # Default to AI.DWH_MART.PROPERTYMANAGEMENT
+            index=0,
             key="selected_cortex_search_service"
         )
         st.toggle("Debug", key="debug_mode")
@@ -699,18 +757,18 @@ else:
 
     # --- Main UI ---
     st.markdown(
-    """
-    <div class="fixed-header">
-        <h1 style='font-size: 30px; color: #29B5E8; margin-bottom: 4px;'>
-            Cortex AI – Property Management Assistant by DiLytics
-        </h1>
-        <p style='font-size: 18px; color: #333;'>
-            <strong>Welcome to Cortex AI. I am here to help with DiLytics Property Management Insights Solutions.</strong>
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        """
+        <div class="fixed-header">
+            <h1 style='font-size: 30px; color: #29B5E8; margin-bottom: 4px;'>
+                Cortex AI – Property Management Assistant by DiLytics
+            </h1>
+            <p style='font-size: 18px; color: #333;'>
+                <strong>Welcome to Cortex AI. I am here to help with DiLytics Property Management Insights Solutions.</strong>
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
     st.markdown(f"Semantic Model: `{semantic_model_filename}`")
