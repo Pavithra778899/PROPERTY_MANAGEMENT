@@ -14,13 +14,13 @@ import streamlit.components.v1 as components
 import plotly.express as px
 
 # --- Snowflake/Cortex Configuration ---
-HOST = "HLGSIYM-COB42429.snowflakecomputing.com"
+HOST = "QNWFESR-LKB66742.snowflakecomputing.com"
 DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000
-CORTEX_SEARCH_SERVICES = "AI.DWH_MART.PROPERTYMANAGEMENT"
-SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management.yaml'
+CORTEX_SEARCH_SERVICES = "AI.DWH_MART.propertymanagement"
+SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management (1).yaml'
 
 # --- Model Options ---
 MODELS = [
@@ -342,7 +342,7 @@ if not st.session_state.authenticated:
             conn = snowflake.connector.connect(
                 user="CORTEX",
                 password="Dilytics@12345",
-                account="HLGSIYM-COB42429",
+                account="QNWFESR-LKB66742",
                 host=HOST,
                 port=443,
                 warehouse="COMPUTE_WH",
