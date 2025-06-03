@@ -17,7 +17,7 @@ DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000
-CORTEX_SEARCH_SERVICES = '"AI"."DWH_MART"."PROPERTYMANAGEMENT"'  # Updated to quoted, uppercase identifier
+CORTEX_SEARCH_SERVICES = 'AI.DWH_MART.propertymanagement' # Updated to quoted, uppercase identifier
 SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management (1).yaml'
 
 # --- Model Options ---
@@ -63,9 +63,9 @@ if "current_sql" not in st.session_state:
 if "current_summary" not in st.session_state:
     st.session_state.current_summary = None
 if "service_metadata" not in st.session_state:
-    st.session_state.service_metadata = [{"name": "AI.DWH_MART.propertymanagement", "search_column": ""}]
+    st.session_state.service_metadata = [{"name": "propertymanagement", "search_column": ""}]
 if "selected_cortex_search_service" not in st.session_state:
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.propertymanagement"
+    st.session_state.selected_cortex_search_service = "propertymanagement"
 if "model_name" not in st.session_state:
     st.session_state.model_name = "mistral-large"
 if "num_retrieved_chunks" not in st.session_state:
