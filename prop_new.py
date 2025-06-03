@@ -640,7 +640,7 @@ else:
                 "Give me the total supplier amount year over year by month?",
                 "Give total supplier payment amount by payment purpose?",
                 "Give me the average supplier amount by property?",
-                "Give me the top 10 suppliers by payment amount by state and occupancy status?",
+                "Give me the  payment amount by state and occupancy status?",
                 "Budget recovery by billing purpose?",
                 "Give me the customer billing details?"
             ]
