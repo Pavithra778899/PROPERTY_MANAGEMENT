@@ -258,9 +258,13 @@ def make_chat_history_summary(chat_history, question):
     chat_history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history])
     prompt = f"""
         [INST]
-        Based on the chat history below and the question, generate a query that extends the question
-        with the chat history provided. The query should be in natural language.
+        You are a conversational AI assistant. Based on the chat history below and the current question, generate a single, clear, and concise query that combines the context of the chat history with the current question. The resulting query should be in natural language and should reflect the user's intent in the conversational flow. Ensure the query is standalone and can be understood without needing to refer back to the chat history.
+
+        For example:
+        - If the chat history contains "user: Total number of properties currently occupied?" and the current question is "by state", the resulting query should be "What is the total number of properties currently occupied by state?"
+
         Answer with only the query. Do not add any explanation.
+
         <chat_history>
         {chat_history_str}
         </chat_history>
@@ -270,8 +274,9 @@ def make_chat_history_summary(chat_history, question):
         [/INST]
     """
     summary = complete(st.session_state.model_name, prompt)
+    if st.session_state.debug_mode:
+        st.sidebar.text_area("Chat History Summary", summary.replace("$", "\$"), height=150)
     return summary
-
 def create_prompt(user_question):
     chat_history_str = ""
     if st.session_state.use_chat_history:
