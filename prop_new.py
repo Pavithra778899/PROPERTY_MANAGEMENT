@@ -219,8 +219,8 @@ def start_new_conversation():
     st.rerun()
 
 def init_service_metadata():
-    st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.PROPERTYMANAGEMENT"
+    if not st.session_state.service_metadata:
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
     try:
         svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()[0]["search_column"]
         st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
@@ -579,6 +579,7 @@ else:
         st.selectbox(
             "Select Cortex Search Service:",
             [CORTEX_SEARCH_SERVICES],
+            index=0,  # Default to AI.DWH_MART.PROPERTYMANAGEMENT
             key="selected_cortex_search_service"
         )
         st.toggle("Debug", key="debug_mode")
@@ -667,7 +668,7 @@ else:
         """
         <div class="fixed-header">
             <h1 style='color: #29B5E8; margin-bottom: 5px;'>Cortex AI-Property Management Assistant by DiLytics</h1>
-            <p style='font-size: 16px; color: #333;'><strong>Welcome to Cortex AI. I am here to help with Dilytics Property Management Insights Solutions</strong></p>
+            <p style='font-size: 12px; color: #333;'><strong>Welcome to Cortex AI. I am here to help with Dilytics Property Management Insights Solutions</strong></p>
         </div>
         """,
         unsafe_allow_html=True
