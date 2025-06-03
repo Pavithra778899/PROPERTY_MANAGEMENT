@@ -72,7 +72,7 @@ if "current_summary" not in st.session_state:
 if "service_metadata" not in st.session_state:
     st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
 if "selected_cortex_search_service" not in st.session_state:
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.PROPERTYMANAGEMENT"
+    st.session_state.selected_cortex_search_service = CORTEX_SEARCH_SERVICES  # Initialize here to avoid modification post-widget
 if "model_name" not in st.session_state:
     st.session_state.model_name = "mistral-large"
 if "num_retrieved_chunks" not in st.session_state:
@@ -149,6 +149,16 @@ st.markdown("""
     text-align: center;
     pointer-events: none; /* Disable hover interactions */
 }
+.fixed-header h1 {
+    color: #29B5E8;
+    font-size: 24px; /* Reduced font size */
+    margin-bottom: 2px;
+}
+.fixed-header p {
+    font-size: 14px; /* Reduced font size */
+    color: #333;
+    margin: 0;
+}
 .fixed-header a {
     pointer-events: none !important;
     text-decoration: none !important;
@@ -156,7 +166,7 @@ st.markdown("""
     cursor: default !important;
 }
 .stApp {
-    padding-top: 100px;
+    padding-top: 80px; /* Adjusted for smaller header */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -219,7 +229,7 @@ def start_new_conversation():
 # Fetch and store metadata for the Cortex search service, including the search column.
 def init_service_metadata():
     st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.PROPERTYMANAGEMENT"
+    # Removed direct modification of selected_cortex_search_service to avoid StreamlitAPIException
     try:
         svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()[0]["search_column"]
         st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
@@ -813,8 +823,8 @@ else:
         st.markdown(
             """
             <div class="fixed-header">
-                <h1 style='color: #29B5E8; margin-bottom: 5px;'>Cortex AI-Property Management Assistant by DiLytics</h1>
-                <p style='font-size: 16px; color: #333;'><strong>Welcome to Cortex AI. I am here to help with Dilytics Property Management Solutions</strong></p>
+                <h1>Cortex AI-Property Management Assistant by DiLytics</h1>
+                <p><strong>Welcome to Cortex AI. I am here to help with Dilytics Property Management Solutions</strong></p>
             </div>
             """,
             unsafe_allow_html=True
