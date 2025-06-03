@@ -266,8 +266,8 @@ Examples:
 - Chat history: 
   user: What is the total number of leases?
   assistant: There are 150 leases.
-  user: by region
-  Rewritten query: What is the total number of leases by region?
+  user: by state
+  Rewritten query: What is the total number of leases by state?
 - Chat history:
   user: List properties with high occupancy.
   assistant: Properties with occupancy above 90% are listed.
