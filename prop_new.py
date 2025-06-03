@@ -597,35 +597,36 @@ else:
 
             # Configure Chart.js options
             chart_config = {
-                "type": chartjs_type,
-                "data": {
-                    "labels": x_data,
-                    "datasets": [{
-                        "label": y_col,
-                        "data": y_data if chart_type != "Pie Chart" else [dict(name=x, value=y) for x, y in zip(x_data, y_data)],
-                        "backgroundColor": [
-                            "rgba(54, 162, 235, 0.6)",
-                            "rgba(255, 99, 132, 0.6)",
-                            "rgba(75, 192, 192, 0.6)",
-                            "rgba(255, 206, 86, 0.6)",
-                            "rgba(153, 102, 255, 0.6)"
-                        ][:len(x_data)] if chart_type == "Pie Chart" else "rgba(54, 162, 235, 0.6)",
-                        "borderColor": "rgba(54, 162, 235, 1)",
-                        "borderWidth": 1
-                    }]
-                },
-                "options": {
-                    "responsive": true,
-                    "plugins": {
-                        "legend": {"display": chart_type in ["Pie Chart", "Line Chart"]},
-                        "title": {"display": True, "text": chart_type}
-                    },
-                    "scales": {} if chart_type in ["Pie Chart"] else {
-                        "x": {"title": {"display": True, "text": x_col}},
-                        "y": {"title": {"display": True, "text": y_col}}
-                    }
-                }
-            }
+    "type": chartjs_type,
+    "data": {
+        "labels": x_data,
+        "datasets": [{
+            "label": y_col,
+            "data": y_data if chart_type != "Pie Chart" else [dict(name=x, value=y) for x, y in zip(x_data, y_data)],
+            "backgroundColor": [
+                "rgba(54, 162, 235, 0.6)",
+                "rgba(255, 99, 132, 0.6)",
+                "rgba(75, 192, 192, 0.6)",
+                "rgba(255, 206, 86, 0.6)",
+                "rgba(153, 102, 255, 0.6)"
+            ][:len(x_data)] if chart_type == "Pie Chart" else "rgba(54, 162, 235, 0.6)",
+            "borderColor": "rgba(54, 162, 235, 1)",
+            "borderWidth": 1
+        }]
+    },
+    "options": {
+        "responsive": True,
+        "plugins": {
+            "legend": {"display": chart_type in ["Pie Chart", "Line Chart"]},
+            "title": {"display": True, "text": chart_type}
+        },
+        "scales": {} if chart_type in ["Pie Chart"] else {
+            "x": {"title": {"display": True, "text": x_col}},
+            "y": {"title": {"display": True, "text": y_col}}
+        }
+    }
+}
+
 
             # Special handling for Histogram
             if chart_type == "Histogram Chart":
