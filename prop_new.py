@@ -7,11 +7,10 @@ import pandas as pd
 from snowflake.snowpark import Session
 from snowflake.core import Root
 from typing import Any, Dict, List, Optional, Tuple
+import plotly.express as px
 import time
 import uuid
 import retrying
-import streamlit.components.v1 as components
-import plotly.express as px
 
 # --- Snowflake/Cortex Configuration ---
 HOST = "QNWFESR-LKB66742.snowflakecomputing.com"
@@ -19,7 +18,7 @@ DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000
-CORTEX_SEARCH_SERVICES = "AI.DWH_MART.propertymanagement"
+CORTEX_SEARCH_SERVICES = '"AI"."DWH_MART"."PROPERTYMANAGEMENT"'  # Quoted identifier
 SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management (1).yaml'
 
 # --- Model Options ---
@@ -65,9 +64,9 @@ if "current_sql" not in st.session_state:
 if "current_summary" not in st.session_state:
     st.session_state.current_summary = None
 if "service_metadata" not in st.session_state:
-    st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
+    st.session_state.service_metadata = [{"name": '"AI"."DWH_MART"."PROPERTYMANAGEMENT"', "search_column": ""}]
 if "selected_cortex_search_service" not in st.session_state:
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.PROPERTYMANAGEMENT"
+    st.session_state.selected_cortex_search_service = '"AI"."DWH_MART"."PROPERTYMANAGEMENT"'
 if "model_name" not in st.session_state:
     st.session_state.model_name = "mistral-large"
 if "num_retrieved_chunks" not in st.session_state:
@@ -75,7 +74,7 @@ if "num_retrieved_chunks" not in st.session_state:
 if "num_chat_messages" not in st.session_state:
     st.session_state.num_chat_messages = 10
 if "use_chat_history" not in st.session_state:
-    st.session_state.use_chat_history = True
+    st.session_state.use_chat_history = True  # Hardcoded to True
 if "clear_conversation" not in st.session_state:
     st.session_state.clear_conversation = False
 if "show_selector" not in st.session_state:
@@ -222,12 +221,17 @@ def start_new_conversation():
 
 def init_service_metadata():
     if not st.session_state.service_metadata:
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
+        st.session_state.service_metadata = [{"name": '"AI"."DWH_MART"."PROPERTYMANAGEMENT"', "search_column": ""}]
     try:
-        svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()[0]["search_column"]
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
+        desc_result = session.sql('DESC CORTEX SEARCH SERVICE "AI"."DWH_MART"."PROPERTYMANAGEMENT";').collect()
+        if desc_result:
+            svc_search_col = desc_result[0]["search_column"]
+            st.session_state.service_metadata = [{"name": '"AI"."DWH_MART"."PROPERTYMANAGEMENT"', "search_column": svc_search_col}]
+        else:
+            st.error("❌ Cortex Search Service 'AI.DWH_MART.PROPERTYMANAGEMENT' not found.")
     except Exception as e:
-        st.error(f"❌ Failed to verify AI.DWH_MART.PROPERTYMANAGEMENT: {str(e)}.")
+        st.error(f"❌ Failed to verify Cortex Search Service: {str(e)}")
+        st.session_state.service_metadata = [{"name": '"AI"."DWH_MART"."PROPERTYMANAGEMENT"', "search_column": ""}]
 
 def query_cortex_search_service(query):
     try:
@@ -236,22 +240,28 @@ def query_cortex_search_service(query):
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services["AI.DWH_MART.PROPERTYMANAGEMENT"]
+            .cortex_search_services['PROPERTYMANAGEMENT']
         )
-        desc_result = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()
-        columns = [row["search_column"] for row in desc_result] if desc_result else []
+        desc_result = session.sql('DESC CORTEX SEARCH SERVICE "AI"."DWH_MART"."PROPERTYMANAGEMENT";').collect()
+        if not desc_result:
+            st.error("❌ Cortex Search Service 'AI.DWH_MART.PROPERTYMANAGEMENT' does not exist.")
+            return ""
+        columns = [row["search_column"] for row in desc_result]
         context_documents = cortex_search_service.search(
             query, columns=columns or [], limit=st.session_state.num_retrieved_chunks
         )
         results = context_documents.results
         service_metadata = st.session_state.service_metadata
         search_col = service_metadata[0]["search_column"] or columns[0] if columns else ""
+        if not search_col:
+            st.warning("⚠️ No search column defined for Cortex Search Service.")
+            return ""
         context_str = ""
         for i, r in enumerate(results):
             context_str += f"Context document {i+1}: {r.get(search_col, '')} \n" + "\n"
         return context_str
     except Exception as e:
-        st.error(f"❌ Error querying Cortex Search service: {str(e)}")
+        st.error(f"❌ Error querying Cortex Search Service: {str(e)}")
         return ""
 
 def get_chat_history():
@@ -560,10 +570,14 @@ else:
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
+        """Display a chart based on query results with user-selected options using Plotly."""
         try:
             if df is None or df.empty or len(df.columns) < 2:
                 st.warning("No valid data available for visualization.")
+                if st.session_state.debug_mode:
+                    st.sidebar.warning(f"Chart Data Issue: df={df}, columns={df.columns if df is not None else 'None'}")
                 return
+
             query_lower = query.lower()
             if re.search(r'\b(county|jurisdiction)\b', query_lower):
                 default_data = "Pie Chart"
@@ -571,6 +585,7 @@ else:
                 default_data = "Line Chart"
             else:
                 default_data = "Bar Chart"
+
             all_cols = list(df.columns)
             col1, col2, col3 = st.columns(3)
             x_col = col1.selectbox("X axis", all_cols, index=0, key=f"{prefix}_x")
@@ -578,6 +593,20 @@ else:
             y_col = col2.selectbox("Y axis", remaining_cols, index=0, key=f"{prefix}_y")
             chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
             chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
+
+            if st.session_state.debug_mode:
+                st.sidebar.text_area("Chart Config", f"X: {x_col}, Y: {y_col}, Type: {chart_type}", height=100)
+
+            # Validate data
+            if df[x_col].nunique() < 1 or df[y_col].empty:
+                st.warning("Insufficient or invalid data for selected axes.")
+                return
+            if chart_type != "Histogram Chart" and not pd.api.types.is_numeric_dtype(df[y_col]):
+                st.warning("Y-axis must be numeric for this chart type.")
+                return
+
+            st.markdown(f"### 📊 {chart_type}")
+
             if chart_type == "Line Chart":
                 fig = px.line(df, x=x_col, y=y_col, title=chart_type)
                 st.plotly_chart(fig, key=f"{prefix}_line")
@@ -593,9 +622,11 @@ else:
             elif chart_type == "Histogram Chart":
                 fig = px.histogram(df, x=x_col, title=chart_type)
                 st.plotly_chart(fig, key=f"{prefix}_hist")
+
         except Exception as e:
             st.error(f"❌ Error generating chart: {str(e)}")
-
+            if st.session_state.debug_mode:
+                st.sidebar.error(f"Chart Error Details: {str(e)}")
 
     def toggle_about():
         st.session_state.show_about = not st.session_state.show_about
@@ -626,7 +657,6 @@ else:
             key="selected_cortex_search_service"
         )
         st.toggle("Debug", key="debug_mode")
-        st.toggle("Use chat history", key="use_chat_history")
         with st.expander("Advanced options"):
             st.selectbox("Select model:", MODELS, key="model_name")
             st.number_input(
@@ -711,7 +741,7 @@ else:
         """
         <div class="fixed-header">
             <h1 style='font-size: 30px; color: #29B5E8; margin-bottom: 4px;'>
-                Cortex AI – Property Management Assistant by DiLytics
+                Cortex AI – Property Management Insights by DiLytics
             </h1>
             <p style='font-size: 18px; color: #333;'>
                 <strong>Welcome to Cortex AI. I am here to help with DiLytics Property Management Insights Solutions.</strong>
@@ -726,12 +756,12 @@ else:
     init_service_metadata()
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
-        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property Management. Ask about your rent, lease, occupancy, or submit a maintenance request to get started!")
+        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with property management. Ask about your rent, properties, leases, occupancy, or submit a maintenance request to get started!")
     else:
         st.session_state.show_greeting = False
 
     for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
+        with st.chat_message(message["role']):
             st.markdown(message["content"], unsafe_allow_html=True)
             if message["role"] == "assistant" and "results" in message and message["results"] is not None:
                 with st.expander("View SQL Query", expanded=False):
@@ -879,7 +909,7 @@ else:
                         raw_result = search_results[0]
                         summary = create_prompt(combined_query)
                         if summary:
-                            response_content = f"**Here is the Answer:**\n{summary}"
+                            response_content = f"**Here is the Response:**\n{summary}"
                         else:
                             response_content = f"**🔍 Key Information:**\n{summarize_unstructured_answer(raw_result)}"
                         with response_placeholder:
@@ -891,7 +921,7 @@ else:
 
                 if failed_response:
                     suggestions = suggest_sample_questions(combined_query)
-                    response_content = "I am not sure about your question. Here are some questions you can ask me:\n\n"
+                    response_content = "I am not sure about your question. Here are some suggestions you can try:\n\n"
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"{i}. {suggestion}\n"
                     with response_placeholder:
