@@ -559,123 +559,42 @@ else:
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
-    """Display a chart based on query results with user-selected options using Chart.js."""
-    try:
-        if df is None or df.empty or len(df.columns) < 2:
-            st.warning("No valid data available for visualization.")
-            if st.session_state.get("debug_mode"):
-                st.sidebar.warning(f"Chart Data Issue: df={df}, columns={df.columns if df is not None else 'None'}")
-            return
-
-        query_lower = query.lower()
-        if re.search(r'\b(county|jurisdiction)\b', query_lower):
-            default_data = "Pie Chart"
-        elif re.search(r'\b(month|year|date)\b', query_lower):
-            default_data = "Line Chart"
-        else:
-            default_data = "Bar Chart"
-
-        all_cols = list(df.columns)
-        col1, col2, col3 = st.columns(3)
-        x_col = col1.selectbox("X axis", all_cols, index=0, key=f"{prefix}_x")
-        remaining_cols = [c for c in all_cols if c != x_col]
-        y_col = col2.selectbox("Y axis", remaining_cols, index=0, key=f"{prefix}_y")
-        chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
-        chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
-
-        if st.session_state.get("debug_mode"):
-            st.sidebar.text_area("Chart Config", f"X: {x_col}, Y: {y_col}, Type: {chart_type}", height=100)
-
-        x_data = df[x_col].astype(str).tolist()
-        y_data = df[y_col].tolist()
-
-        chartjs_type = {
-            "Line Chart": "line",
-            "Bar Chart": "bar",
-            "Pie Chart": "pie",
-            "Scatter Chart": "scatter",
-            "Histogram Chart": "bar"
-        }.get(chart_type, "bar")
-
-        # Special handling for histogram
-        if chart_type == "Histogram Chart":
-            bins = pd.cut(df[x_col], bins=10, retbins=True)[1]
-            hist_data = pd.cut(df[x_col], bins=bins).value_counts().sort_index()
-            x_data = [f"{b:.2f}" for b in bins[:-1]]
-            y_data = hist_data.tolist()
-
-        chart_config = {
-            "type": chartjs_type,
-            "data": {
-                "labels": x_data,
-                "datasets": [{
-                    "label": y_col,
-                    "data": y_data if chart_type != "Pie Chart" else [y for y in y_data],
-                    "backgroundColor": [
-                        "rgba(54, 162, 235, 0.6)",
-                        "rgba(255, 99, 132, 0.6)",
-                        "rgba(75, 192, 192, 0.6)",
-                        "rgba(255, 206, 86, 0.6)",
-                        "rgba(153, 102, 255, 0.6)"
-                    ][:len(x_data)] if chart_type == "Pie Chart" else "rgba(54, 162, 235, 0.6)",
-                    "borderColor": "rgba(54, 162, 235, 1)",
-                    "borderWidth": 1
-                }]
-            },
-            "options": {
-                "responsive": True,
-                "plugins": {
-                    "legend": {"display": chart_type in ["Pie Chart", "Line Chart"]},
-                    "title": {"display": True, "text": chart_type}
-                },
-                "scales": {} if chart_type == "Pie Chart" else {
-                    "x": {"title": {"display": True, "text": x_col}},
-                    "y": {"title": {"display": True, "text": y_col}}
-                }
-            }
-        }
-
-        # Show chart
-        st.markdown(f"### 📊 {chart_type}")
-        chart_json = json.dumps(chart_config)
-
-        chart_html = f"""
-        <canvas id="{prefix}_chart"></canvas>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script>
-        const ctx = document.getElementById('{prefix}_chart').getContext('2d');
-        const config = {chart_json};
-        new Chart(ctx, config);
-        </script>
-        """
-
-        components.html(chart_html, height=500)
-
-    except Exception as e:
-        st.error(f"❌ Error generating chart: {str(e)}")
-        if st.session_state.get("debug_mode"):
-            st.sidebar.error(f"Chart Error Details: {str(e)}")
-
-
-
-            # Special handling for Histogram
-            if chart_type == "Histogram Chart":
-                bins = pd.cut(df[x_col], bins=10, retbins=True)[1]
-                hist_data = pd.cut(df[x_col], bins=bins).value_counts().sort_index()
-                chart_config["data"]["labels"] = [f"{b:.2f}" for b in bins[:-1]]
-                chart_config["data"]["datasets"][0]["data"] = hist_data.tolist()
-                chart_config["options"]["scales"]["x"]["title"]["text"] = f"{x_col} Bins"
-
-            # Display Chart.js chart
-            st.markdown(f"**📈 {chart_type}**")
-            
-            {json.dumps(chart_config, indent=2)}
-            
-
+        try:
+            if df is None or df.empty or len(df.columns) < 2:
+                st.warning("No valid data available for visualization.")
+                return
+            query_lower = query.lower()
+            if re.search(r'\b(county|jurisdiction)\b', query_lower):
+                default_data = "Pie Chart"
+            elif re.search(r'\b(month|year|date)\b', query_lower):
+                default_data = "Line Chart"
+            else:
+                default_data = "Bar Chart"
+            all_cols = list(df.columns)
+            col1, col2, col3 = st.columns(3)
+            x_col = col1.selectbox("X axis", all_cols, index=0, key=f"{prefix}_x")
+            remaining_cols = [c for c in all_cols if c != x_col]
+            y_col = col2.selectbox("Y axis", remaining_cols, index=0, key=f"{prefix}_y")
+            chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
+            chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
+            if chart_type == "Line Chart":
+                fig = px.line(df, x=x_col, y=y_col, title=chart_type)
+                st.plotly_chart(fig, key=f"{prefix}_line")
+            elif chart_type == "Bar Chart":
+                fig = px.bar(df, x=x_col, y=y_col, title=chart_type)
+                st.plotly_chart(fig, key=f"{prefix}_bar")
+            elif chart_type == "Pie Chart":
+                fig = px.pie(df, names=x_col, values=y_col, title=chart_type)
+                st.plotly_chart(fig, key=f"{prefix}_pie")
+            elif chart_type == "Scatter Chart":
+                fig = px.scatter(df, x=x_col, y=y_col, title=chart_type)
+                st.plotly_chart(fig, key=f"{prefix}_scatter")
+            elif chart_type == "Histogram Chart":
+                fig = px.histogram(df, x=x_col, title=chart_type)
+                st.plotly_chart(fig, key=f"{prefix}_hist")
         except Exception as e:
             st.error(f"❌ Error generating chart: {str(e)}")
-            if st.session_state.debug_mode:
-                st.sidebar.error(f"Chart Error Details: {str(e)}")
+
 
     def toggle_about():
         st.session_state.show_about = not st.session_state.show_about
