@@ -210,7 +210,7 @@ def query_cortex_search_service(query):
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services["PROC_SERVICE"]
+            .cortex_search_services["AI.DWH_MART.propertymanagement"]
         )
         context_documents = cortex_search_service.search(
             query, columns=[], limit=st.session_state.num_retrieved_chunks
@@ -478,7 +478,7 @@ else:
             payload["tool_resources"] = {"analyst1": {"semantic_model_file": SEMANTIC_MODEL}}
         else:
             payload["tools"].append({"tool_spec": {"type": "cortex_search", "name": "search1"}})
-            payload["tool_resources"] = {"search1": {"name": "PROC_SERVICE", "max_results": st.session_state.num_retrieved_chunks}}
+            payload["tool_resources"] = {"search1": {"name": "AI.DWH_MART.propertymanagement", "max_results": st.session_state.num_retrieved_chunks}}
         try:
             resp = requests.post(
                 url=f"https://{HOST}{API_ENDPOINT}",
