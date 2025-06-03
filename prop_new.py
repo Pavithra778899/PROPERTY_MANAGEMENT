@@ -11,6 +11,7 @@ import time
 import uuid
 import retrying
 import streamlit.components.v1 as components
+import plotly.express as px
 
 # --- Snowflake/Cortex Configuration ---
 HOST = "HLGSIYM-COB42429.snowflakecomputing.com"
