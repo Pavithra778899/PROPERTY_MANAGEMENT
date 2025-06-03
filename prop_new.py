@@ -17,7 +17,7 @@ DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000
-CORTEX_SEARCH_SERVICES = 'AI.DWH_MART.propertymanagement' # Updated to quoted, uppercase identifier
+CORTEX_SEARCH_SERVICES = 'AI.DWH_MART.PROPERTYMANAGEMENTSEARCH'  # Updated to new service name
 SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management (1).yaml'
 
 # --- Model Options ---
@@ -63,9 +63,9 @@ if "current_sql" not in st.session_state:
 if "current_summary" not in st.session_state:
     st.session_state.current_summary = None
 if "service_metadata" not in st.session_state:
-    st.session_state.service_metadata = [{"name": "AI.DWH_MART.propertymanagement", "search_column": ""}]
+    st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENTSEARCH", "search_column": "content"}]  # Updated service name
 if "selected_cortex_search_service" not in st.session_state:
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.propertymanagement"
+    st.session_state.selected_cortex_search_service = CORTEX_SEARCH_SERVICES  # Initialize with new service
 if "model_name" not in st.session_state:
     st.session_state.model_name = "mistral-large"
 if "num_retrieved_chunks" not in st.session_state:
@@ -217,34 +217,33 @@ def start_new_conversation():
 def init_service_metadata():
     """Initialize service metadata with fallback for search column."""
     if not st.session_state.service_metadata:
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": "content"}]  # Default search column
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENTSEARCH", "search_column": "content"}]  # Updated service name
     try:
         # Verify service existence
         services = session.sql("SHOW CORTEX SEARCH SERVICES IN SCHEMA AI.DWH_MART;").collect()
         service_names = [row["name"] for row in services]
-        expected_service = "PROPERTYMANAGEMENT"
+        expected_service = "PROPERTYMANAGEMENTSEARCH"
         if expected_service not in service_names:
-            st.error(f"❌ Cortex Search service {expected_service} not found. Available services: {service_names}. As admin, please verify or recreate the service.")
+            st.error(f"❌ Cortex Search service {expected_service} not found. Available services: {service_names}. As admin, recreate the service using 'CREATE CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENTSEARCH ON content IN TABLE AI.DWH_MART.YOUR_TABLE;'.")
             return
 
         # Retrieve search column
-        desc_result = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()
+        desc_result = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENTSEARCH;").collect()
         svc_search_col = desc_result[0]["search_column"] if desc_result and desc_result[0]["search_column"] else "content"
         if svc_search_col == "content":
-            st.warning("No search column defined for AI.DWH_MART.PROPERTYMANAGEMENT. Using default 'content'. As admin, consider recreating the service with a defined search column.")
-        
+            st.warning("No search column defined for AI.DWH_MART.PROPERTYMANAGEMENTSEARCH. Using default 'content'. As admin, verify with 'DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENTSEARCH;' or recreate the service.")
+
         # Log DDL for debugging
         try:
-            ddl = session.sql("SELECT GET_DDL('CORTEX_SEARCH_SERVICE', 'AI.DWH_MART.PROPERTYMANAGEMENT');").collect()[0][0]
-            st.session_state.service_ddl = ddl  # Store for debugging
+            ddl = session.sql("SELECT GET_DDL('CORTEX_SEARCH_SERVICE', 'AI.DWH_MART.PROPERTYMANAGEMENTSEARCH');").collect()[0][0]
+            st.session_state.service_ddl = ddl
         except:
             st.session_state.service_ddl = "Unable to retrieve DDL."
 
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
-        st.session_state.selected_cortex_search_service = 'AI.DWH_MART.PROPERTYMANAGEMENT'
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENTSEARCH", "search_column": svc_search_col}]
     except Exception as e:
-        st.error(f"❌ Failed to retrieve Cortex Search service metadata: {str(e)}. Using default search column 'content'. As admin, run 'DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;' to verify configuration.")
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": "content"}]
+        st.error(f"❌ Failed to retrieve Cortex Search service metadata: {str(e)}. Using default search column 'content'. As admin, run 'SHOW CORTEX SEARCH SERVICES IN SCHEMA AI.DWH_MART;' and 'DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENTSEARCH;' to verify configuration.")
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENTSEARCH", "search_column": "content"}]
 
 def query_cortex_search_service(query):
     """Query Cortex Search service with dynamic column selection."""
@@ -254,7 +253,7 @@ def query_cortex_search_service(query):
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services["PROPERTYMANAGEMENT"]  # Uppercase service name
+            .cortex_search_services["PROPERTYMANAGEMENTSEARCH"]  # Updated service name
         )
         context_documents = cortex_search_service.search(
             query, columns=[], limit=st.session_state.num_retrieved_chunks
@@ -264,15 +263,14 @@ def query_cortex_search_service(query):
         search_col = service_metadata[0].get("search_column", "content")  # Fallback to 'content'
         context_str = ""
         for i, r in enumerate(results):
-            # Try search_col, then first available column, then empty string
             available_cols = list(r.keys()) if r else []
             content = r.get(search_col, r.get(available_cols[0], "") if available_cols else "")
             context_str += f"Context document {i+1}: {content} \n" + "\n"
         if not context_str.strip():
-            st.warning("No search results returned. Check query or service configuration.")
+            st.warning("No search results returned. As admin, check query or service configuration with 'DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENTSEARCH;'.")
         return context_str
     except Exception as e:
-        st.error(f"❌ Error querying Cortex Search service: {str(e)}. As admin, verify 'AI.DWH_MART.PROPERTYMANAGEMENT' configuration using 'SHOW CORTEX SEARCH SERVICES IN SCHEMA AI.DWH_MART;' and ensure a search column is defined.")
+        st.error(f"❌ Error querying Cortex Search service: {str(e)}. As admin, verify 'AI.DWH_MART.PROPERTYMANAGEMENTSEARCH' with 'SHOW CORTEX SEARCH SERVICES IN SCHEMA AI.DWH_MART;' and ensure a search column is defined.")
         return ""
 
 def get_chat_history():
@@ -507,83 +505,92 @@ else:
                     return None
                 return parse_sse_response(resp.text)
             else:
-                raise Exception(f"Failed request with status {resp.status_code}: {resp.text}")
+                raise Exception(f"Failed request with status {resp.status_code} }: {resp.text} "")
+            return resp.status_code
         except Exception as e:
-            st.error(f"❌ API Request Error: {str(e)}")
+            st.error(f"❌ API Request Error: {str(e)} "")
             return None
 
     def summarize_unstructured_answer(answer):
-        sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|")\s', answer)
-        return "\n".join(f"• {sent.strip()}" for sent in sentences[:6])
+        sentences = re.split(r'(?<!\w\.\w.)(?<!\.$) (?<=.|\ "") \ s', answer, 0)
+        return "\n".join(f" {sent.strip()} "" for sent in sentences[:6]) for
 
     def suggest_sample_questions(query: str) -> List[str]:
+        return query
         try:
-            prompt = (
-                f"The user asked: '{query}'. Generate 3-5 clear, concise sample questions related to properties, leases, tenants, rent, occupancy, suppliers, or billing metrics. "
-                f"Format as a numbered list."
-            )
-            response = complete(st.session_state.model_name, prompt)
-            if response:
-                questions = []
-                for line in response.split("\n"):
-                    line = line.strip()
-                    if re.match(r'^\d+\.\s*.+', line):
-                        question = re.sub(r'^\d+\.\s*', '', line)
-                        questions.append(question)
-                return questions[:5]
-            else:
-                return [
-                    "What are the total number of occupied properties?",
-                    "What are the total number of occupied properties by state?",
-                    "Percentage of properties by occupancy status?",
-                    "Percentage of leases terminated by month and year where year is 2010?",
-                    "Give me the total supplier amount year over year by month?"
-                ]
+        prompt = (
+            f"""The user asked: '{query}'." Generate 3-5 clear, concise sample questions related to properties, leases, maintenance, tenants, rent, or billing metrics. 
+            Format as a numbered list.
+            """")
+        response = complete(st.session_state.model_name, prompt)
+        return response
+        if response is not None:
+            questions = []
+            return questions
+            for item in response.split('\n'):
+                line = item.strip()
+                if re.match(r'^\d+\.\s*.+', line):
+                    question = re.sub(r'^\d+\.\s*', '', line)
+                    return questions.append(question))
+            return questions[:5]
+        return [
+            return "What are the total number of occupied properties?",
+            "What are the total number of occupied properties by state?",
+            "Percentage of properties by occupancy status?",
+            "Percentage of leases terminated by month and year where year is 2010?",
+            "Give me the total supplier amount year over year by month?"
+            ]
         except Exception as e:
             return [
                 "What are the total number of occupied properties?",
                 "What are the total number of occupied properties by state?",
                 "Percentage of properties by occupancy status?",
                 "Percentage of leases terminated by month and year where year is 2010?",
-                "Give me the total supplier amount year over year by month?"
+                "Give me the total supplier amount year over year by month?",
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
         try:
-            if df is None or df.empty or len(df.columns) < 2:
-                st.warning("No valid data available for visualization.")
-                return
-            query_lower = query.lower()
-            if re.search(r'\b(county|jurisdiction)\b', query_lower):
-                default_data = "Pie Chart"
-            elif re.search(r'\b(month|year|date)\b', query_lower):
-                default_data = "Line Chart"
-            else:
-                default_data = "Bar Chart"
-            all_cols = list(df.columns)
-            col1, col2, col3 = st.columns(3)
-            x_col = col1.selectbox("X axis", all_cols, index=0, key=f"{prefix}_x")
-            remaining_cols = [c for c in all_cols if c != x_col]
-            y_col = col2.selectbox("Y axis", remaining_cols, index=0, key=f"{prefix}_y")
-            chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
-            chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
-            if chart_type == "Line Chart":
-                fig = px.line(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_line")
-            elif chart_type == "Bar Chart":
-                fig = px.bar(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_bar")
-            elif chart_type == "Pie Chart":
-                fig = px.pie(df, names=x_col, values=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_pie")
-            elif chart_type == "Scatter Chart":
-                fig = px.scatter(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_scatter")
-            elif chart_type == "Histogram Chart":
-                fig = px.histogram(df, x=x_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_hist")
-        except Exception as e:
-            st.error(f"❌ Error generating chart: {str(e)}")
+            return df is None or df.empty or len(df.columns) < 2
+            st.warning("No valid data available for visualization.")
+            return None
+        query_lower = query.lower()
+        return if re.search(r'\b(county|jurisdiction)\b', query_lower):
+            return default_data = "Pie Chart"
+        return elif re.search(r'\b(month|year|date)\b', query_lower):
+            return default_data = "Line Chart"
+        else:
+            return default_data = "Bar Chart"
+        all_cols = list(df.columns)
+        col1, col2, col3 = st.columns(3)
+        x_col = col1.selectbox("X axis", all_cols, index=0, key=f"{prefix}_x"")
+        remaining_cols = [c for c in all_cols if c != x_col]
+        y_col = col2.selectbox("Y axis", remaining_cols, index=0, key=f"{prefix}_y")
+        chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
+        chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
+        return chart_type == "Line Chart"
+        fig = px.line(df, x=x_col, y_col=y_col, title=chart_type)
+        st.plotly_chart(fig, key=f"{prefix}_line")
+        return None
+    elif chart_type == "Bar Chart":
+        fig = px.bar(df, x=x_col, y_col=y_col, title=chart_type)
+        st.plotly_chart(fig, key=f"{prefix}_bar")
+        return None
+    elif chart_type == "Pie Chart":
+        fig = px.pie(df, names=x_col, values=y_col, title=chart_type)
+        st.plotly_chart(fig, key=f"{prefix}_pie")
+        return None
+    elif chart_type == "Scatter Chart":
+        fig = px.scatter(df, x=x_col, y=y_col, title=chart_type)
+        st.plotly_chart(fig, key=f"{prefix}_scatter")
+        return None
+    elif chart_type == "Histogram Chart":
+        fig = px.histogram(df, x=x_col, title=chart_type)
+        st.plotly_chart(fig, key=f"{prefix}_hist")
+        return None
+    except Exception as e:
+        st.error(f"❌ Error generating chart: {str(e)} "")
+        return None
 
     def toggle_about():
         st.session_state.show_about = not st.session_state.show_about
@@ -608,7 +615,7 @@ else:
             start_new_conversation()
         st.selectbox(
             "Select Cortex Search Service:",
-            [CORTEX_SEARCH_SERVICES],
+            [CORTEX_SEARCH_SERVICES],  # Updated to new service
             index=0,
             key="selected_cortex_search_service"
         )
@@ -632,7 +639,7 @@ else:
             )
         if st.button("Sample Questions"):
             st.session_state.show_sample_questions = not st.session_state.get("show_sample_questions", False)
-        if st.session_state.get("show_sample_questions", False):
+        if st.session_state.get("show_sample_questions", False)):
             st.markdown("### Sample Questions")
             sample_questions = [
                 "What are the total number of occupied properties?",
@@ -641,7 +648,7 @@ else:
                 "Percentage of leases terminated by month and year where year is 2010?",
                 "Give me the total supplier amount year over year by month?",
                 "Give total supplier payment amount by payment purpose?",
-                "Give me the average supplier amount by property?",
+                "Give me the total supplier amount by property?",
                 "Give me the top 10 suppliers by payment amount by state and occupancy status?",
                 "Budget recovery by billing purpose?",
                 "Give me the customer billing details?"
@@ -651,13 +658,13 @@ else:
                     st.session_state.query = sample
                     st.session_state.show_greeting = False
         with st.expander("Submit Maintenance Request"):
-            st.markdown("### Submit a Maintenance Request")
+            st.markdown("### Submit Maintenance Request")
             property_id = st.text_input("Property ID", key="maint_property_id")
             tenant_name = st.text_input("Tenant Name", key="maint_tenant_name")
             issue_description = st.text_area("Issue Description", key="maint_issue_description")
             if st.button("Submit Request", key="submit_maintenance_request"):
                 if not property_id or not tenant_name or not issue_description:
-                    st.error("❌ Please fill in all fields to submit a maintenance request.")
+                    st.error("❌ Request Please fill in all fields to submit a maintenance request.")
                 else:
                     success, message = submit_maintenance_request(property_id, tenant_name, issue_description)
                     if success:
@@ -674,7 +681,7 @@ else:
                 st.write("No questions in history yet.")
             else:
                 for idx, question in enumerate(user_questions):
-                    if st.button(question, key=f"history_{idx}"):
+                    if question:
                         st.session_state.query = question
                         st.session_state.show_greeting = False
         if st.button("About"):
@@ -682,7 +689,7 @@ else:
         if st.session_state.show_about:
             st.markdown("### About")
             st.write(
-                "This application uses **Snowflake Cortex Analyst** to interpret "
+                "This application uses **Snowflake Cortex** Analyst to interpret "
                 "your natural language questions and generate data insights for property management."
             )
         if st.button("Help & Documentation"):
@@ -699,10 +706,10 @@ else:
     st.markdown(
     """
     <div class="fixed-header">
-        <h1 style='font-size: 30px; color: #29B5E8; margin-bottom: 4px;'>
+        <h1 style="font-size: 30px; color: #29B5E8; margin-bottom: 4px;">
             Cortex AI – Property Management Assistant by DiLytics
         </h1>
-        <p style='font-size: 18px; color: #333;'>
+        <p style="font-size: 18px; color: #333;">
             <strong>Welcome to Cortex AI. I am here to help with DiLytics Property Management Insights Solutions.</strong>
         </p>
     </div>
@@ -711,18 +718,18 @@ else:
 )
 
     semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
-    st.markdown(f"Semantic Model: `{semantic_model_filename}`")
+    st.markdown(f"### Semantic Model: `{semantic_model_filename}`")
     init_service_metadata()
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
-        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property Management. Ask about your rent, lease, occupancy, or submit a maintenance request to get started!")
+        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property Management. Ask about your rent, lease, or submit a maintenance request to get started!")
     else:
         st.session_state.show_greeting = False
 
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"], unsafe_allow_html=True)
-            if message["role"] == "assistant" and "results" in message and message["results"] is not None:
+            if message["role"] == "assistant" and "sql" in message and message["sql"]:
                 with st.expander("View SQL Query", expanded=False):
                     st.code(message["sql"], language="sql")
                 st.markdown(f"**Query Results ({len(message['results'])} rows):**")
@@ -738,7 +745,7 @@ else:
     if st.session_state.query:
         query = st.session_state.query
         if query.lower().startswith("no of"):
-            query = query.replace("no of", "number of", 1)
+            query = query.replace("no of ", "number of ", 1)
         st.session_state.show_greeting = False
         st.session_state.chart_x_axis = None
         st.session_state.chart_y_axis = None
@@ -753,7 +760,7 @@ else:
                     query = original_query
             except ValueError:
                 query = original_query
-        is_follow_up = any(re.search(pattern, query.lower()) for pattern in [r'^\bby\b\s+\w+$', r'^\bgroup by\b\s+\w+$']) and st.session_state.previous_query
+        is_follow_up = any(re.search(pattern, query.lower()) for pattern in [r'^\bby\b\s+\w+$', r'^\b(group by)\b\s+\w+$']) and st.session_state.previous_query
         combined_query = query
         if st.session_state.use_chat_history and is_follow_up:
             chat_history = get_chat_history()
@@ -778,7 +785,7 @@ else:
                 if is_greeting or is_suggestion:
                     response_content = (
                         "Hello! Welcome to the Property Management AI Assistant!\n"
-                        "Here are some questions you can try:\n"
+                        "Here are some sample questions you can try:\n"
                     )
                     suggestions = [
                         "What are the total number of occupied properties?",
@@ -824,11 +831,11 @@ else:
                         results = run_snowflake_query(sql)
                         if results is not None and not results.empty:
                             results_text = results.to_string(index=False)
-                            prompt = f"Provide a concise natural language answer to the query '{combined_query}' using the following data:\n\n{results_text}"
+                            prompt = f"Provide a concise natural language response to the query '{combined_query}' using the following data:\n\n{results_text}"
                             summary = complete(st.session_state.model_name, prompt)
                             if not summary:
                                 summary = "Unable to generate a summary."
-                            response_content = f"**✍️ Generated Response:**\n{summary}"
+                            response_content = f"**Generated Response:**\n{summary}"
                             with response_placeholder:
                                 st.markdown(response_content, unsafe_allow_html=True)
                             with st.expander("View SQL Query", expanded=False):
@@ -858,7 +865,7 @@ else:
                                 raw_result = search_results[0]
                                 summary = create_prompt(combined_query)
                                 if summary:
-                                    response_content = f"**Here is the Answer:**\n{summary}"
+                                    response_content = f"**Summary:** {summary}"
                                 else:
                                     response_content = f"**🔍 Key Information:**\n{summarize_unstructured_answer(raw_result)}"
                                 with response_placeholder:
@@ -874,7 +881,7 @@ else:
                             raw_result = search_results[0]
                             summary = create_prompt(combined_query)
                             if summary:
-                                response_content = f"**Here is the Answer:**\n{summary}"
+                                response_content = f"**Summary:** {summary}"
                             else:
                                 response_content = f"**🔍 Key Information:**\n{summarize_unstructured_answer(raw_result)}"
                             with response_placeholder:
@@ -886,7 +893,7 @@ else:
 
                 if failed_response:
                     suggestions = suggest_sample_questions(combined_query)
-                    response_content = "I am not sure about your question. Here are some questions you can ask me:\n\n"
+                    response_content = "I am not sure about your question. Here are some sample questions you can ask me:\n"
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"{i}. {suggestion}\n"
                     with response_placeholder:
