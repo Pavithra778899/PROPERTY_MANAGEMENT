@@ -63,9 +63,9 @@ if "current_sql" not in st.session_state:
 if "current_summary" not in st.session_state:
     st.session_state.current_summary = None
 if "service_metadata" not in st.session_state:
-    st.session_state.service_metadata = [{"name": "propertymanagement", "search_column": ""}]
+    st.session_state.service_metadata = [{"name": "AI.DWH_MART.propertymanagement", "search_column": ""}]
 if "selected_cortex_search_service" not in st.session_state:
-    st.session_state.selected_cortex_search_service = "propertymanagement"
+    st.session_state.selected_cortex_search_service = "AI.DWH_MART.propertymanagement"
 if "model_name" not in st.session_state:
     st.session_state.model_name = "mistral-large"
 if "num_retrieved_chunks" not in st.session_state:
@@ -215,39 +215,64 @@ def start_new_conversation():
     st.rerun()
 
 def init_service_metadata():
+    """Initialize service metadata with fallback for search column."""
     if not st.session_state.service_metadata:
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": "content"}]  # Default search column
     try:
-        svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE \"AI\".\"DWH_MART\".\"PROPERTYMANAGEMENT\";").collect()[0]["search_column"]
+        # Verify service existence
+        services = session.sql("SHOW CORTEX SEARCH SERVICES IN SCHEMA AI.DWH_MART;").collect()
+        service_names = [row["name"] for row in services]
+        expected_service = "PROPERTYMANAGEMENT"
+        if expected_service not in service_names:
+            st.error(f"❌ Cortex Search service {expected_service} not found. Available services: {service_names}. As admin, please verify or recreate the service.")
+            return
+
+        # Retrieve search column
+        desc_result = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()
+        svc_search_col = desc_result[0]["search_column"] if desc_result and desc_result[0]["search_column"] else "content"
+        if svc_search_col == "content":
+            st.warning("No search column defined for AI.DWH_MART.PROPERTYMANAGEMENT. Using default 'content'. As admin, consider recreating the service with a defined search column.")
+        
+        # Log DDL for debugging
+        try:
+            ddl = session.sql("SELECT GET_DDL('CORTEX_SEARCH_SERVICE', 'AI.DWH_MART.PROPERTYMANAGEMENT');").collect()[0][0]
+            st.session_state.service_ddl = ddl  # Store for debugging
+        except:
+            st.session_state.service_ddl = "Unable to retrieve DDL."
+
         st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
-        st.session_state.selected_cortex_search_service = '"AI"."DWH_MART"."PROPERTYMANAGEMENT"'
+        st.session_state.selected_cortex_search_service = 'AI.DWH_MART.PROPERTYMANAGEMENT'
     except Exception as e:
-        st.error(f"❌ Failed to verify Cortex Search service: {str(e)}. Please ensure the service 'AI.DWH_MART.PROPERTYMANAGEMENT' exists.")
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
+        st.error(f"❌ Failed to retrieve Cortex Search service metadata: {str(e)}. Using default search column 'content'. As admin, run 'DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;' to verify configuration.")
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": "content"}]
 
 def query_cortex_search_service(query):
+    """Query Cortex Search service with dynamic column selection."""
     try:
         db, schema = session.get_current_database(), session.get_current_schema()
         root = Root(session)
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services["PROPERTYMANAGEMENT"]  # Use the service name without database.schema prefix
+            .cortex_search_services["PROPERTYMANAGEMENT"]  # Uppercase service name
         )
         context_documents = cortex_search_service.search(
             query, columns=[], limit=st.session_state.num_retrieved_chunks
         )
         results = context_documents.results
         service_metadata = st.session_state.service_metadata
-        search_col = service_metadata[0]["search_column"]
-        if not search_col:
-            raise ValueError("Search column not found in service metadata.")
+        search_col = service_metadata[0].get("search_column", "content")  # Fallback to 'content'
         context_str = ""
         for i, r in enumerate(results):
-            context_str += f"Context document {i+1}: {r[search_col]} \n" + "\n"
+            # Try search_col, then first available column, then empty string
+            available_cols = list(r.keys()) if r else []
+            content = r.get(search_col, r.get(available_cols[0], "") if available_cols else "")
+            context_str += f"Context document {i+1}: {content} \n" + "\n"
+        if not context_str.strip():
+            st.warning("No search results returned. Check query or service configuration.")
         return context_str
     except Exception as e:
-        st.error(f"❌ Error querying Cortex Search service: {str(e)}. Please verify the service name and configuration.")
+        st.error(f"❌ Error querying Cortex Search service: {str(e)}. As admin, verify 'AI.DWH_MART.PROPERTYMANAGEMENT' configuration using 'SHOW CORTEX SEARCH SERVICES IN SCHEMA AI.DWH_MART;' and ensure a search column is defined.")
         return ""
 
 def get_chat_history():
