@@ -17,7 +17,7 @@ DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000
-CORTEX_SEARCH_SERVICES = "AI.DWH_MART.propertymanagement"
+CORTEX_SEARCH_SERVICES = '"AI"."DWH_MART"."PROPERTYMANAGEMENT"'  # Updated to quoted, uppercase identifier
 SEMANTIC_MODEL = '@"AI"."DWH_MART"."PROPERTY_MANAGEMENT"/property_management (1).yaml'
 
 # --- Model Options ---
@@ -216,12 +216,14 @@ def start_new_conversation():
 
 def init_service_metadata():
     if not st.session_state.service_metadata:
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.propertymanagement", "search_column": ""}]
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
     try:
-        svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.propertymanagement;").collect()[0]["search_column"]
-        st.session_state.service_metadata = [{"name": "AI.DWH_MART.propertymanagement", "search_column": svc_search_col}]
+        svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE \"AI\".\"DWH_MART\".\"PROPERTYMANAGEMENT\";").collect()[0]["search_column"]
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
+        st.session_state.selected_cortex_search_service = '"AI"."DWH_MART"."PROPERTYMANAGEMENT"'
     except Exception as e:
-        st.error(f"❌ Failed to verify AI.DWH_MART.propertymanagement: {str(e)}.")
+        st.error(f"❌ Failed to verify Cortex Search service: {str(e)}. Please ensure the service 'AI.DWH_MART.PROPERTYMANAGEMENT' exists.")
+        st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
 
 def query_cortex_search_service(query):
     try:
@@ -230,7 +232,7 @@ def query_cortex_search_service(query):
         cortex_search_service = (
             root.databases[db]
             .schemas[schema]
-            .cortex_search_services["AI.DWH_MART.propertymanagement"]
+            .cortex_search_services["PROPERTYMANAGEMENT"]  # Use the service name without database.schema prefix
         )
         context_documents = cortex_search_service.search(
             query, columns=[], limit=st.session_state.num_retrieved_chunks
@@ -238,12 +240,14 @@ def query_cortex_search_service(query):
         results = context_documents.results
         service_metadata = st.session_state.service_metadata
         search_col = service_metadata[0]["search_column"]
+        if not search_col:
+            raise ValueError("Search column not found in service metadata.")
         context_str = ""
         for i, r in enumerate(results):
             context_str += f"Context document {i+1}: {r[search_col]} \n" + "\n"
         return context_str
     except Exception as e:
-        st.error(f"❌ Error querying Cortex Search service: {str(e)}")
+        st.error(f"❌ Error querying Cortex Search service: {str(e)}. Please verify the service name and configuration.")
         return ""
 
 def get_chat_history():
