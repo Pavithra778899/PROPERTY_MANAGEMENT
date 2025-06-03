@@ -665,14 +665,19 @@ else:
 
     # --- Main UI ---
     st.markdown(
-        """
-        <div class="fixed-header">
-            <h1 style='color: #29B5E8; margin-bottom: 3px;'>Cortex AI-Property Management Assistant by DiLytics</h1>
-            <p style='font-size: 10px; color: #333;'><strong>Welcome to Cortex AI. I am here to help with Dilytics Property Management Insights Solutions</strong></p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    """
+    <div class="fixed-header">
+        <h1 style='font-size: 20px; color: #29B5E8; margin-bottom: 4px;'>
+            Cortex AI – Property Management Assistant by DiLytics
+        </h1>
+        <p style='font-size: 11px; color: #333;'>
+            <strong>Welcome to Cortex AI. I am here to help with DiLytics Property Management Insights Solutions.</strong>
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
     semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
     st.markdown(f"Semantic Model: `{semantic_model_filename}`")
     init_service_metadata()
