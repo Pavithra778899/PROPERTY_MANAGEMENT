@@ -402,9 +402,27 @@ else:
         ]
         return any(re.search(pattern, query.lower()) for pattern in suggestion_patterns)
 
-    def is_greeting_query(query: str):
-        greeting_patterns = [r'^\b(hello|hi|hey|greet)\b$']
-        return any(re.search(pattern, query.lower()) for pattern in greeting_patterns)
+    def is_generic_query(query: str) -> bool:
+    generic_patterns = [
+        r'^\s*(hi|hello|hey|greetings)\s*$',
+        r'\bhow are you\b',
+        r'\bhow’s it going\b',
+        r'\bwhat’s up\b',
+        r'\bgood (morning|afternoon|evening)\b',
+        r'\bthank(s| you)\b',
+        r'\bwho are you\b',
+        r'\bwhat can you do\b',
+        r'\bwhat do you offer\b',
+        r'\bhow can you help\b',
+        r'\bwhat can i get from you\b',
+        r'\bwhat can i display\b',
+        r'\bhelp\b',
+        r'\bstart over\b',
+        r'\bwhat is this (app|assistant|tool)\b',
+        r'\btell me about yourself\b'
+    ]
+    query_lower = query.lower()
+    return any(re.search(pattern, query_lower) for pattern in generic_patterns)
     def complete(model, prompt):
         try:
             prompt = prompt.replace("'", "\\'")
