@@ -828,7 +828,7 @@ else:
                         else:
                             # Fallback to Cortex Search if structured query fails
                             response = snowflake_api_call(combined_query, is_structured=False)
-                            _, search_results = process_sse_response(response, is_structured=False
+                            _, search_results = process_sse_response(response, is_structured=False
                             if search_results:
                                 raw_result = search_results[0]
                                 summary = create_prompt(combined_query)
