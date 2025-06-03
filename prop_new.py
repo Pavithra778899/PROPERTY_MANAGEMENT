@@ -667,7 +667,7 @@ else:
         st.image(logo_url, width=250)
         if st.button("Clear conversation"):
             start_new_conversation()
-        st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
+        #--st.radio("Select Data Source:", ["Database", "Document"], key="data_source")--
         if CORTEX_SEARCH_SERVICES:
             st.selectbox(
                 "Select Cortex Search Service:",
