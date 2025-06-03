@@ -1,3 +1,4 @@
+
 import streamlit as st
 import json
 import re
@@ -7,11 +8,10 @@ import pandas as pd
 from snowflake.snowpark import Session
 from snowflake.core import Root
 from typing import Any, Dict, List, Optional, Tuple
+import plotly.express as px
 import time
 import uuid
 import retrying
-import streamlit.components.v1 as components
-import plotly.express as px
 
 # --- Snowflake/Cortex Configuration ---
 HOST = "HLGSIYM-COB42429.snowflakecomputing.com"
@@ -560,10 +560,14 @@ else:
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
+        """Display a chart based on query results with user-selected options using Plotly."""
         try:
             if df is None or df.empty or len(df.columns) < 2:
                 st.warning("No valid data available for visualization.")
+                if st.session_state.debug_mode:
+                    st.sidebar.warning(f"Chart Data Issue: df={df}, columns={df.columns if df is not None else 'None'}")
                 return
+
             query_lower = query.lower()
             if re.search(r'\b(county|jurisdiction)\b', query_lower):
                 default_data = "Pie Chart"
@@ -571,6 +575,7 @@ else:
                 default_data = "Line Chart"
             else:
                 default_data = "Bar Chart"
+
             all_cols = list(df.columns)
             col1, col2, col3 = st.columns(3)
             x_col = col1.selectbox("X axis", all_cols, index=0, key=f"{prefix}_x")
@@ -578,6 +583,20 @@ else:
             y_col = col2.selectbox("Y axis", remaining_cols, index=0, key=f"{prefix}_y")
             chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
             chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
+
+            if st.session_state.debug_mode:
+                st.sidebar.text_area("Chart Config", f"X: {x_col}, Y: {y_col}, Type: {chart_type}", height=100)
+
+            # Validate data
+            if df[x_col].nunique() < 1 or df[y_col].empty:
+                st.warning("Insufficient or invalid data for selected axes.")
+                return
+            if chart_type != "Histogram Chart" and not pd.api.types.is_numeric_dtype(df[y_col]):
+                st.warning("Y-axis must be numeric for this chart type.")
+                return
+
+            st.markdown(f"### 📊 {chart_type}")
+
             if chart_type == "Line Chart":
                 fig = px.line(df, x=x_col, y=y_col, title=chart_type)
                 st.plotly_chart(fig, key=f"{prefix}_line")
@@ -593,9 +612,11 @@ else:
             elif chart_type == "Histogram Chart":
                 fig = px.histogram(df, x=x_col, title=chart_type)
                 st.plotly_chart(fig, key=f"{prefix}_hist")
+
         except Exception as e:
             st.error(f"❌ Error generating chart: {str(e)}")
-
+            if st.session_state.debug_mode:
+                st.sidebar.error(f"Chart Error Details: {str(e)}")
 
     def toggle_about():
         st.session_state.show_about = not st.session_state.show_about
