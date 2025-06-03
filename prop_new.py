@@ -80,8 +80,6 @@ if "show_selector" not in st.session_state:
     st.session_state.show_selector = False
 if "show_greeting" not in st.session_state:
     st.session_state.show_greeting = True
-if "data_source" not in st.session_state:
-    st.session_state.data_source = "Database"
 if "show_about" not in st.session_state:
     st.session_state.show_about = False
 if "show_help" not in st.session_state:
@@ -277,6 +275,7 @@ def make_chat_history_summary(chat_history, question):
     if st.session_state.debug_mode:
         st.sidebar.text_area("Chat History Summary", summary.replace("$", "\$"), height=150)
     return summary
+
 def create_prompt(user_question):
     chat_history_str = ""
     if st.session_state.use_chat_history:
@@ -368,8 +367,8 @@ else:
 
     def is_structured_query(query: str):
         structured_patterns = [
-            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list)\b',
-            r'\b(property|tenant|lease|rent|occupancy|maintenance|billing|payment)\b'
+            r'\b(count|number|where|group by|order by|sum|avg|max|min|total|how many|which|show|list|percentage|by)\b',
+            r'\b(property|tenant|lease|rent|occupancy|maintenance|billing|payment|supplier|budget|customer)\b'
         ]
         return any(re.search(pattern, query.lower()) for pattern in structured_patterns)
 
@@ -507,19 +506,19 @@ else:
                 return questions[:5]
             else:
                 return [
-                    "Which properties have the highest occupancy rates?",
-                    "What is the average rent collected per tenant?",
-                    "Which leases expire in the next 30 days?",
-                    "What’s the total rental income by property?",
-                    "Which tenants have pending rent payments?"
+                    "What are the total number of occupied properties?",
+                    "What are the total number of occupied properties by state?",
+                    "Percentage of properties by occupancy status?",
+                    "Percentage of leases terminated by month and year where year is 2010?",
+                    "Give me the total supplier amount year over year by month?"
                 ]
         except Exception as e:
             return [
-                "Which properties have the highest occupancy rates?",
-                "What is the average rent collected per tenant?",
-                "Which leases expire in the next 30 days?",
-                "What’s the total rental income by property?",
-                "Which tenants have pending rent payments?"
+                "What are the total number of occupied properties?",
+                "What are the total number of occupied properties by state?",
+                "Percentage of properties by occupancy status?",
+                "Percentage of leases terminated by month and year where year is 2010?",
+                "Give me the total supplier amount year over year by month?"
             ]
 
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
@@ -580,11 +579,10 @@ else:
         st.image(logo_url, width=250)
         if st.button("Clear conversation"):
             start_new_conversation()
-        st.radio("Select Data Source:", ["Database", "Document"], key="data_source")
         st.selectbox(
             "Select Cortex Search Service:",
             [CORTEX_SEARCH_SERVICES],
-            index=0,  # Default to AI.DWH_MART.PROPERTYMANAGEMENT
+            index=0,
             key="selected_cortex_search_service"
         )
         st.toggle("Debug", key="debug_mode")
@@ -610,14 +608,16 @@ else:
         if st.session_state.get("show_sample_questions", False):
             st.markdown("### Sample Questions")
             sample_questions = [
-                "What is Property Management?",
-                "Total number of properties currently occupied?",
-                "What is the number of properties by occupancy status?",
-                "What is the number of properties currently leased?",
-                "What is the average rent collected per tenant?",
-                "Which leases expire in the next 30 days?",
-                "What’s the total rental income by property?",
-                "Which tenants have pending rent payments?"
+                "What are the total number of occupied properties?",
+                "What are the total number of occupied properties by state?",
+                "Percentage of properties by occupancy status?",
+                "Percentage of leases terminated by month and year where year is 2010?",
+                "Give me the total supplier amount year over year by month?",
+                "Give total supplier payment amount by payment purpose?",
+                "Give me the average supplier amount by property?",
+                "Give me the top 10 suppliers by payment amount by state and occupancy status?",
+                "Budget recovery by billing purpose?",
+                "Give me the customer billing details?"
             ]
             for sample in sample_questions:
                 if st.button(sample, key=f"sidebar_{sample}"):
@@ -739,9 +739,7 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Generating Response..."):
                 response_placeholder = st.empty()
-                if st.session_state.data_source not in ["Database", "Document"]:
-                    st.session_state.data_source = "Database"
-                is_structured = is_structured_query(combined_query) and st.session_state.data_source == "Database"
+                is_structured = is_structured_query(combined_query)
                 is_complete = is_complete_query(combined_query)
                 is_summarize = is_summarize_query(combined_query)
                 is_suggestion = is_question_suggestion_query(combined_query)
@@ -756,10 +754,11 @@ else:
                         "Here are some questions you can try:\n"
                     )
                     suggestions = [
-                        "Total number of properties currently occupied?",
-                        "What is the average rent collected per tenant?",
-                        "Which leases expire in the next 30 days?",
-                        "What’s the total rental income by property?"
+                        "What are the total number of occupied properties?",
+                        "What are the total number of occupied properties by state?",
+                        "Percentage of properties by occupancy status?",
+                        "Percentage of leases terminated by month and year where year is 2010?",
+                        "Give me the total supplier amount year over year by month?"
                     ]
                     for i, suggestion in enumerate(suggestions, 1):
                         response_content += f"{i}. {suggestion}\n"
@@ -791,7 +790,8 @@ else:
                     else:
                         failed_response = True
 
-                elif is_structured:
+                else:
+                    # Default to structured query for data-related questions
                     response = snowflake_api_call(combined_query, is_structured=True)
                     sql, _ = process_sse_response(response, is_structured=True)
                     if sql:
@@ -826,30 +826,39 @@ else:
                                 "summary": summary
                             })
                         else:
-                            response_content = "No data returned for the query."
-                            failed_response = True
+                            # Fallback to Cortex Search if structured query fails
+                            response = snowflake_api_call(combined_query, is_structured=False)
+                            _, search_results = process_sse_response(response, is_structured=False
+                            if search_results:
+                                raw_result = search_results[0]
+                                summary = create_prompt(combined_query)
+                                if summary:
+                                    response_content = f"**Here is the Answer:**\n{summary}"
+                                else:
+                                    response_content = f"**🔍 Key Information:**\n{summarize_unstructured_answer(raw_result)}"
+                                with response_placeholder:
+                                    st.markdown(response_content, unsafe_allow_html=True)
+                                assistant_response["content"] = response_content
+                                st.session_state.messages.append({"role": "assistant", "content": response_content})
+                            else:
+                                failed_response = True
+                    else:
+                        # Fallback to Cortex Search if no SQL generated
+                        response = snowflake_api_call(combined_query, is_structured=False)
+                        _, search_results = process_sse_response(response, is_structured=False)
+                        if search_results:
+                            raw_result = search_results[0]
+                            summary = create_prompt(combined_query)
+                            if summary:
+                                response_content = f"**Here is the Answer:**\n{summary}"
+                            else:
+                                response_content = f"**🔍 Key Information:**\n{summarize_unstructured_answer(raw_result)}"
+                            with response_placeholder:
+                                st.markdown(response_content, unsafe_allow_html=True)
                             assistant_response["content"] = response_content
-                    else:
-                        response_content = "Failed to generate SQL query."
-                        failed_response = True
-                        assistant_response["content"] = response_content
-
-                elif st.session_state.data_source == "Document":
-                    response = snowflake_api_call(combined_query, is_structured=False)
-                    _, search_results = process_sse_response(response, is_structured=False)
-                    if search_results:
-                        raw_result = search_results[0]
-                        summary = create_prompt(combined_query)
-                        if summary:
-                            response_content = f"**Here is the Answer:**\n{summary}"
+                            st.session_state.messages.append({"role": "assistant", "content": response_content})
                         else:
-                            response_content = f"**🔍 Key Information:**\n{summarize_unstructured_answer(raw_result)}"
-                        with response_placeholder:
-                            st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
-                    else:
-                        failed_response = True
+                            failed_response = True
 
                 if failed_response:
                     suggestions = suggest_sample_questions(combined_query)
