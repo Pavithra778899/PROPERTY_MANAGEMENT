@@ -13,7 +13,7 @@ import uuid
 import random
 
 # Snowflake/Cortex Configuration
-HOST = "GBJYVCT-LSB50763.snowflakecomputing.com"
+HOST = "HLGSIYM-COB42429.snowflakecomputing.com"
 DATABASE = "AI"
 SCHEMA = "DWH_MART"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
@@ -39,8 +39,8 @@ st.set_page_config(
 # Initialize session state
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-    st.session_state.username = ""
-    st.session_state.password = ""
+    st.session_state.username = "CORTEX"
+    st.session_state.password = "Dilytics@12345"
     st.session_state.CONN = None
     st.session_state.snowpark_session = None
     st.session_state.chat_history = []
@@ -100,7 +100,7 @@ if "previous_sql" not in st.session_state:
 if "previous_results" not in st.session_state:
     st.session_state.previous_results = None
 
-# CSS Styling (aligned with Procurement code)
+# CSS Styling (reduced header text size)
 st.markdown("""
 <style>
 #MainMenu, header, footer {visibility: hidden;}
@@ -148,7 +148,7 @@ st.markdown("""
     cursor: default !important;
 }
 .stApp {
-    padding-top: 100px;
+    padding-top: 80px;
 }
 .follow-up-button {
     background-color: #29B5E8 !important;
@@ -159,6 +159,16 @@ st.markdown("""
     margin: 0 !important;
     border: none !important;
     padding: 0.5rem 1rem !important;
+}
+.fixed-header h1 {
+    font-size: 20px !important;
+    margin-bottom: 2px !important;
+    color: #29B5E8;
+}
+.fixed-header p {
+    font-size: 12px !important;
+    color: #333;
+    margin: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -205,9 +215,8 @@ def start_new_conversation():
     st.session_state.previous_results = None
 
 # Initialize Service Metadata
-def init_service_metadata():
+def init_service_metadata(session):
     st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": ""}]
-    st.session_state.selected_cortex_search_service = "AI.DWH_MART.PROPERTYMANAGEMENT"
     try:
         svc_search_col = session.sql("DESC CORTEX SEARCH SERVICE AI.DWH_MART.PROPERTYMANAGEMENT;").collect()[0]["search_column"]
         st.session_state.service_metadata = [{"name": "AI.DWH_MART.PROPERTYMANAGEMENT", "search_column": svc_search_col}]
@@ -416,13 +425,13 @@ if not st.session_state.authenticated:
     st.title("Welcome to Snowflake Cortex AI")
     st.markdown("Please login to interact with your data")
     st.session_state.username = st.text_input("Enter Snowflake Username:", value=st.session_state.username)
-    st.session_state.password = st.text_input("Enter Password:", type="password")
+    st.session_state.password = st.text_input("Enter Password:", type="password", value=st.session_state.password)
     if st.button("Login"):
         try:
             conn = snowflake.connector.connect(
                 user=st.session_state.username,
                 password=st.session_state.password,
-                account="GBJYVCT-LSB50763",
+                account="HLGSIYM-COB42429",
                 host=HOST,
                 port=443,
                 warehouse="COMPUTE_WH",
@@ -448,6 +457,9 @@ if not st.session_state.authenticated:
 else:
     session = st.session_state.snowpark_session
     root = Root(session)
+
+    # Initialize service metadata before sidebar widgets
+    init_service_metadata(session)
 
     if st.session_state.rerun_trigger:
         st.session_state.rerun_trigger = False
@@ -659,12 +671,12 @@ else:
     def display_chart_tab(df: pd.DataFrame, prefix: str = "chart", query: str = ""):
         try:
             if df is None or df.empty or len(df.columns) < 2:
-                st.warning("No valid data available for visualization.")
-                if st.session_state.debug_mode:
-                    st.sidebar.warning(f"Chart Data Issue: df={df}, columns={df.columns if df is not None else 'None'}")
+                st.error.header("Invalid or insufficient data for visualization.")
+                if st.session_state.debug:
+                    st.error(f"Chart Data Issue: df={df}, columns={df.columns if df is not None else 'None'}")
                 return
             query_lower = query.lower()
-            if re.search(r'\b(county|jurisdiction)\b', query_lower):
+            if re.search(r'\b(county|county|jurisdiction)\b', query_lower):
                 default_data = "Pie Chart"
             elif re.search(r'\b(month|year|date)\b', query_lower):
                 default_data = "Line Chart"
@@ -687,44 +699,44 @@ else:
             y_col = col2.selectbox("Y axis", remaining_cols, index=y_index, key=f"{prefix}_y")
             chart_options = ["Line Chart", "Bar Chart", "Pie Chart", "Scatter Chart", "Histogram Chart"]
             chart_type = col3.selectbox("Chart Type", chart_options, index=chart_options.index(default_data), key=f"{prefix}_type")
-            if st.session_state.debug_mode:
+            if st.session_state.debug:
                 st.sidebar.write(f"Chart Config: X={x_col}, Y={y_col}, Type={chart_type}")
-            
             if chart_type == "Line Chart":
                 fig = px.line(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_line")
+                st.plotly_chart(fig, key=f"Line")
             elif chart_type == "Bar Chart":
                 fig = px.bar(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_bar")
+                st.plotly_chart(fig, key=f"Bar")
             elif chart_type == "Pie Chart":
                 fig = px.pie(df, names=x_col, values=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_pie")
+                st.plotly_chart(fig, key=f"Pie")
             elif chart_type == "Scatter Chart":
-                fig = px.scatter(df, x=x_col, y=y_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_scatter")
+                fig = px.scatter(df, x=x_col, y_col=y_col, title=chart_type)
+                st.plotly_chart(fig, key=f"Scatter")
             elif chart_type == "Histogram Chart":
                 fig = px.histogram(df, x=x_col, title=chart_type)
-                st.plotly_chart(fig, key=f"{prefix}_hist")
+                st.plotly_chart(fig, key=f"Hist")
         except Exception as e:
-            st.error(f"❌ Error generating chart: {str(e)}")
+            st.error(f"⚠️ Error generating chart: {str(e)}")
             if st.session_state.debug_mode:
                 st.sidebar.error(f"Chart Error: {str(e)}")
 
     # Sidebar UI
     with st.sidebar:
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] [data-testid="stButton"] > button {
-            background-color: #29B5E8 !important;
-            color: white !important;
-            font-weight: bold !important;
-            width: 100% !important;
-            border-radius: 0px !important;
-            margin: 0 !important;
-            border: none !important;
-            padding: 0.5rem 1rem !important;
-        }
-        </style>
+        st.markdown("
+        """
+<style>
+[data-testid="stSidebar"] [data-testid="stButton"] > button {
+    background-color: #29B5E8 !important;
+    color: white !important;
+    font-weight: bold !important;
+    width: 100% !important;
+    border-radius: 0px !important;
+    margin: 0 !important;
+    border: none !important;
+    padding: 0.5rem 1rem !important;
+}
+</style>
         """, unsafe_allow_html=True)
         logo_container = st.container()
         button_container = st.container()
@@ -752,7 +764,7 @@ else:
                 "What is the number of properties currently leased?",
                 "What are the supplier payments compared to customer billing by month?",
                 "What is the total number of suppliers?",
-                "What is the average supplier payment per property?",
+                "What is the average amount of supplier payment per property?",
                 "What are the details of lease execution, commencement, and termination?",
                 "What are the customer billing and supplier payment details by location and purpose?",
                 "What is the budget recovery by billing purpose?",
@@ -765,304 +777,294 @@ else:
                     st.session_state.show_greeting = False
         with about_container:
             st.markdown("### About")
-            st.write(
+            st.markdown(
                 "This application uses **Snowflake Cortex Analyst** to interpret "
                 "your natural language questions and generate data insights. "
-                "Simply ask a question below to see relevant answers and visualizations."
+                Simply ask a question below to see relevant answers and visualizations."
             )
         with help_container:
             st.markdown("### Help & Documentation")
-            st.write(
+            st.markdown(
                 "- [User Guide](https://docs.snowflake.com/en/guides-overview-ai-features)  \n"
                 "- [Snowflake Cortex Analyst Docs](https://docs.snowflake.com/)  \n"
-                "- [Contact Support](https://www.snowflake.com/en/support/)"
+                "- [Contact Support](https://support.snowflake.com/)  \n"
             )
         # Maintenance Request Submission
         with st.expander("Submit Maintenance Request"):
             st.markdown("### Submit a Maintenance Request")
-            property_id = st.text_input("Property ID", key="maint_property_id")
-            tenant_name = st.text_input("Tenant Name", key="maint_tenant_name")
-            issue_description = st.text_area("Issue Description", key="maint_issue_description")
+            property_id = st.text_input("Supplier ID", key="maint_property_id")
+            tenant_name = st.text_input("Supplier Name", key="maint_tenant_name")
+            issue_description = st.text_area("Purchase Order Description", key="maint_issue_description")
             if st.button("Submit Request", key="submit_maintenance_request"):
                 if not property_id or not tenant_name or not issue_description:
-                    st.error("❌ Please fill in all fields to submit a maintenance request.")
+                    st.error("Error: Not all fields filled out. Please fill in all fields to submit a maintenance request.")
                 else:
-                    success, message = submit_maintenance_request(property_id, tenant_name, issue_description)
+                    success, message = submit_maintenance_request(session, property_id, tenant_name, issue_description)
                     if success:
                         st.success(message)
                     else:
                         st.error(message)
 
-    # Main UI and Query Processing
+    # Main UI
     st.markdown(
-        f'<img src="https://raw.githubusercontent.com/nkumbala129/30-05-2025/main/Dilytics_logo.png" class="dilytics-logo">',
+        f'<img src="https://raw.githubusercontent.com/nkumbala129/30-sup-sup/05/2025/main/DiLytics_logo.png" id="dilytics-logo">',
         unsafe_allow_html=True
     )
     semantic_model_filename = SEMANTIC_MODEL.split("/")[-1]
     st.markdown(
         """
         <div class="fixed-header">
-            <h1 style='color: #29B5E8; margin-bottom: 5px;'>Cortex AI-Property Management Assistant by DiLytics</h1>
-            <p style='font-size: 16px; color: #333;'><strong>Welcome to Cortex AI. I am here to help with Dilytics Property Management Insights Solutions</strong></p>
+            <h1>Cortex AI-Powered Property Management Assistant by DiLytics</h1>
+            <p><strong>Welcome to property management.</strong> I am here to help with DiLytics Property Management Insights Solutions</p>
         </div>
-        """,
+    """
+        ,
         unsafe_allow_html=True
     )
-    init_service_metadata()
 
     if st.session_state.show_greeting and not st.session_state.chat_history:
-        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property management. Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, rent collection, and maintenance, with transparency and efficiency. 🏠 Ask about your rent, lease, or submit a maintenance request to get started!")
+        st.markdown("Welcome! I’m the Snowflake AI Assistant, ready to assist you with Property management. Property management is all about keeping your properties in tip-top shape—leasing, tenant screening, property payment collection, and maintenance, with transparency and efficiency. 🏠 Returns about your rent, supplier, or maintenance request to get started!")
     else:
         st.session_state.show_greeting = False
 
-    for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"], unsafe_allow_html=True)
-            if message["role"] == "assistant" and "results" in message and message["results"] is not None:
-                with st.expander("View SQL Query", expanded=False):
-                    st.code(message["sql"], language="sql")
-                st.markdown(f"**Query Results ({len(message['results'])} rows):**")
-                st.dataframe(message["results"])
-                if not message["results"].empty and len(message["results"].columns) >= 2:
-                    st.markdown("**📈 Visualization:**")
-                    display_chart_tab(message["results"], prefix=f"chart_{hash(message['content'])}", query=message.get("query", ""))
-            if (message["role"] == "assistant" and 
-                "follow_up_questions" in message and 
-                message.get("query") and 
-                not is_greeting_query(message.get("query", "")) and 
-                not is_generic_query(message.get("query", "")) and 
-                not is_question_suggestion_query(message.get("query", ""))):
-                st.markdown("**Follow-Up Questions:**")
-                for idx, follow_up in enumerate(message["follow_up_questions"]):
-                    if st.button(follow_up, key=f"follow_up_{hash(message['content'])}_{idx}", help="Click to ask this follow-up question"):
-                        st.session_state.query = follow_up
-                        st.session_state.show_greeting = False
+    for message in st.session_state.messages:
+        content = message.get("content", "")
+        with st.chat_message(message["role"])):
+            st.markdown(content, unsafe_allow_html=True)
+        if message["role"] == "assistant" and "sql" in message and message["sql"]:
+            with st.expander("View SQL Query", expanded=False):
+                st.code(message["sql"], language="sql")
+            st.markdown(f"**Query Results** ({len(message['results'])} rows):")
+            st.dataframe(message['results'])
+            if message["results"] is not message["results"].empty and len(message["results"].columns) >= 2:
+                st.markdown("### Visualization:")
+                display_chart(st.session_state.messages["results"], prefix=f"query_{hash(str(message["content"])}", query=message.get("query", ""))
+        if (message["role"] == "assistant" and "follow_up" in message and
+            not is_greeting(message.get("query", "")) and
+            not is_generic_query(message.get("query", "")) and 
+            not is_question_suggestion["query"](message.get("query", "")))):
+            st.markdown("### Follow-Up Questions:")
+            for i, q in enumerate(message["follow_up"]):
+                if st.button(q["question"], key=f"follow_up_{hash(str(message["content"])}_{i}", help=f"Ask: {q['question']}}"):
+                    st.session_state.query = q["question"]
+                    st.session_state.show_greeting = False
 
-    chat_input_query = st.chat_input("Ask your question...")
+    chat_input_query = st.chat_input("What would you like to explore?")
     if chat_input_query:
         st.session_state.query = chat_input_query
 
     if st.session_state.query:
-        query = st.session_state.query
+        query = st.query
         if query.lower().startswith("no of"):
             query = query.replace("no of", "number of", 1)
         st.session_state.show_greeting = False
-        st.session_state.chart_x_axis = None
-        st.session_state.chart_y_axis = None
+        st.session_state.chart_x = None
+        st.session_state.chart_y = None
         st.session_state.chart_type = "Bar Chart"
         original_query = query
         if query.strip().isdigit() and st.session_state.last_suggestions:
             try:
                 index = int(query.strip()) - 1
-                if 0 <= index < len(st.session_state.last_suggestions):
+                if 0 <= index <= len(st.session_state.last_suggestions):
                     query = st.session_state.last_suggestions[index]
-                else:
-                    query = original_query
-            except ValueError:
-                query = original_query
+                    else:
+                        query = original_query
+                    except ValueError:
+                        query = original_query
 
-        is_follow_up = False
+                is_follow = False
         follow_up_patterns = [
             r'^\bby\b\s+\w+$',
-            r'^\bgroup by\b\s+\w+$'
+            r'^\bgroup by\s+\w+$'
         ]
         if any(re.search(pattern, query.lower()) for pattern in follow_up_patterns) and st.session_state.previous_query:
-            is_follow_up = True
+            is_follow = True
 
         combined_query = query
         if st.session_state.use_chat_history:
             chat_history = get_chat_history()
-            if chat_history and is_follow_up:
+            if chat_history and is_follow:
                 combined_query = make_chat_history_summary(chat_history, query)
                 if st.session_state.debug_mode:
-                    st.sidebar.text_area("Combined Query", combined_query, height=100)
+                    st.session_state.text_area("Combined Query", expanded_query, height=100)
 
         st.session_state.chat_history.append({"role": "user", "content": original_query})
         st.session_state.messages.append({"role": "user", "content": original_query})
         with st.chat_message("user"):
             st.markdown(original_query)
         with st.chat_message("assistant"):
-            with st.spinner("Generating Response..."):
+            with st.spinner("Processing..."):
                 response_placeholder = st.empty()
                 if st.session_state.data_source not in ["Database", "Document"]:
                     st.session_state.data_source = "Database"
-                is_structured = is_structured_query(combined_query) and st.session_state.data_source == "Database"
-                is_complete = is_complete_query(combined_query)
-                is_summarize = is_summarize_query(combined_query)
-                is_suggestion = is_question_suggestion_query(combined_query)
-                is_greeting = is_greeting_query(combined_query)
-                is_generic = is_generic_query(combined_query)
-                if st.session_state.debug_mode:
-                    st.sidebar.text_area("Debug Info", f"is_structured: {is_structured}\nis_complete: {is_complete}\nis_summarize: {is_summarize}\nis_suggestion: {is_suggestion}\nis_greeting: {is_greeting}\nis_generic: {is_generic}\nData Source: {st.session_state.data_source}\nis_follow_up: {is_follow_up}", height=150)
-                assistant_response = {"role": "assistant", "content": "", "query": combined_query}
-                response_content = ""
-                failed_response = False
+                    is_structured = is_structured_query(combined_query)
+                    is_complete = is_complete_query(combined_query)
+                    is_summarize = is_summarize_query(combined_query)
+                    is_suggestion = is_question_suggestion_query(combined_query)
+                    is_greeting = is_greeting_query(combined_query)
+                    if st.session_state.debug_mode:
+                        st.session_state.debug({"is_structured_query": is_structured, "is_complete": is_complete, "is_summarize": is_summarize, "is_suggestion": is_suggestion, "is_greeting": is_greeting})
+                    assistant_response = {"role": "assistant", "content": {"query": ""}}
+                    response_content = None
+                    failed_response = False
 
-                if is_greeting or is_generic or is_suggestion:
-                    greeting = original_query.lower().split()[0] if is_greeting else "hello"
-                    if greeting not in ["hi", "hello", "hey", "greet"]:
-                        greeting = "hello"
-                    response_content = (
-                        f"{greeting.capitalize()}! I'm here to help with your property management questions. Here are some questions you can ask me:\n\n"
-                    )
-                    suggestions = suggest_follow_up_questions(combined_query)
-                    for i, suggestion in enumerate(suggestions, 1):
-                        response_content += f"{i}. {suggestion}\n"
-                    response_content += "\nFeel free to ask any of these or come up with your own related to property management!"
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
-                    assistant_response["content"] = response_content
-                    st.session_state.last_suggestions = suggestions
-                    st.session_state.messages.append({"role": "assistant", "content": response_content})
+                    if is_greeting or is_generic or is_suggestion:
+                        greeting = combined_query.lower().split()[0] if is_greeting else ""
+                        if greeting not in ["hi", "hello", "hey", "greetings"]:
+                            greeting = "hello"
+                        response_content = (
+                            f"{greeting.capitalize()}!\n\n"
+                            "I’m here to assist with your Property Management questions. Here are some questions you might want to ask:\n\n"
+                            )
+                        suggestions = get_questions(combined_query)
+                        for j, suggestion in enumerate(suggestions, 1):
+                            response_content += f"{j}. {suggestion}\n"
+                        response_content += "\nFeel free to ask any of these or come up with your own property management questions!"
+                        with response_placeholder(response_content):
+                            st.write_stream(stream(response_content))
+                            st.markdown(response_content, unsafe_content=True)
+                        assistant_response["content"] = response_content
+                        st.session_state.last_suggestions = suggestions
+                        st.session_state.messages.append({"role": "assistant", "content": {"query": suggestion}})
 
-                elif is_complete:
-                    content = create_prompt(combined_query)
-                    if content:
-                        response_content = f"**✍️ Generated Response:**\n{content}"
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
-                    else:
-                        response_content = "⚠️ Unable to generate response for the query."
-                        failed_response = True
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
-
-                elif is_summarize:
-                    summary = summarize(combined_query)
-                    if summary:
-                        response_content = f"**Summary:**\n{summary}"
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
-                    else:
-                        response_content = "⚠️ Unable to generate summary for the query."
-                        failed_response = True
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
-
-                elif is_structured:
-                    response = snowflake_api_call(combined_query, is_structured=True)
-                    sql, _ = process_sse_response(response, is_structured=True)
-                    if sql:
-                        if st.session_state.debug_mode:
-                            st.sidebar.text_area("Generated SQL", sql, height=150)
-                        results = run_snowflake_query(sql)
-                        if results is not None and not results.empty:
-                            results_text = results.to_string(index=False)
-                            prompt = f"Provide a concise natural language answer to the query '{combined_query}' using the following data, avoiding phrases like 'Based on the query results':\n{results_text}"
-                            summary = complete(st.session_state.model_name, prompt)
-                            if not summary:
-                                summary = "⚠️ Unable to generate a natural language summary."
-                            response_content = f"**✍️ Generated Response:**\n{summary}"
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
-                            with st.expander("View SQL Query", expanded=False):
-                                st.code(sql, language="sql")
-                            st.markdown(f"**Query Results ({len(results)} rows):**")
-                            st.dataframe(results)
-                            if len(results.columns) >= 2:
-                                st.markdown("**📈 Visualization:**")
-                                display_chart_tab(results, prefix=f"results_{hash(combined_query)}", query=combined_query)
-                            assistant_response.update({
-                                "content": response_content,
-                                "sql": sql,
-                                "results": results,
-                                "summary": summary
-                            })
-                            st.session_state.messages.append({
-                                "role": "assistant",
-                                "content": response_content,
-                                "sql": sql,
-                                "results": results,
-                                "summary": summary
-                            })
-                        else:
-                            response_content = "⚠️ No data returned for the query."
-                            failed_response = True
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
+                    elif is_complete:
+                        content = make_prompt(combined_query)
+                        if content:
+                            response_content = f"\n**Generated Response:**\n\n{content}"
+                            with response_content(response_content, unsafe_allow_html=True):
+                                st.write_stream(stream(response_content))
+                                st.markdown(response_content)
                             assistant_response["content"] = response_content
-                            st.session_state.messages.append({"role": "assistant", "content": response_content})
-                    else:
-                        response_content = "⚠️ Failed to generate SQL query."
-                        failed_response = True
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
-
-                else:
-                    response = snowflake_api_call(combined_query, is_structured=False)
-                    _, search_results = process_sse_response(response, is_structured=False)
-                    if search_results:
-                        raw_result = search_results[0]
-                        summary = create_prompt(combined_query)
-                        if summary:
-                            response_content = f"**Here is the Answer:**\n{summary}"
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
+                            st.session_state.messages.append({"role": "assistant", "content": content})
                         else:
-                            response_content = f"**🔍 Key Information (Unsummarized):**\n{summarize_unstructured_answer(raw_result)}"
-                            with response_placeholder:
-                                st.write_stream(stream_text(response_content))
-                                st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
+                            response_content = "⚠️ Unable to generate response."
+                            failed_response = True
+                            with response_content(response_content, unsafe_content_html=True):
+                                st.write_stream(stream(response_content))
+                                st.markdown(response_content)
+                            assistant_response["content"] = response_content
+                            st.session_state.messages.append({"role": "assistant", "content": content})
+
+                    elif is_summerize:
+                        summary = get_summary(content)
+                        if summary:
+                            response_content = f"\n\n**Summary:**\n{summary}"
+                            with response_content(response_content, unsafe_content=True):
+                                st.write_stream(stream(response_content))
+                                st.markdown(response_content)
+                            assistant_response.append["content"] = response_content
+                            st.session_state.messages.append({"role": "assistant", "content": content})
+                        else:
+                            response_content = "⚠️ Unable to generate summary."
+                            failed_response = True
+                            with response_content(response_content, unsafe_content_html=True):
+                                st.write_stream(stream(response_content))
+                                st.markdown(response_content)
+                            assistant_response["content"] = response_content
+                            st.session_state.messages.append({"role": "assistant", "content": content})
+
+                    elif is_structured:
+                        content = snowflake_api_call(combined_query, {"is_structured": True})
+                        sql_content, _, _ = parse_sse(content, is_s_structured=True)
+                        if sql:
+                            if st.session_state.debug_mode:
+                                st.session_state.json({"sql": {"query": sql_content}})
+                            results = run_snowflake_query(sql_content)
+                            if results is not None and not results.empty:
+                                results_text = results.to_string(index=False))
+                                    prompt = f"""
+                                    Provide a natural language response for query '{combined_query}' using the data:\n{results_text}"
+                                    """
+                                    summary = generate_summary(content, prompt)
+                                    if not summary:
+                                        summary = "⚠️ Unable to generate summary."
+                                    response_content = summary
+                                    with response_content(response_content, unsafe_content=True):
+                                        st.write_stream(stream(response_content))
+                                    with st.expander("View SQL:", expanded):
+                                            False):
+                                        st.code(sql_content, language="sql")
+                                    st.markdown(f"**{'Query results': {len(results)} rows}:**")
+                                    st.dataframe(results)
+                                    if len(results) >= 2:
+                                        st.markdown("**📈:**")
+                                        display_chart(results, prefix=f"results_{hash(combined_query)}"", query=combined_query")
+                                    assistant_response["content"] = response_content
+                                    assistant_response["sql"] = {"query": sql_content}
+                                    assistant_response["results"] = results
+                                    assistant_response["summary"] = summary
+                                    st.session_state.messages.append({"content": response_content, "sql": sql_content, "results": results, "summary": summary})
+                                else:
+                                    response_content = "⚠️ No results found."
+                                    failed_response = True
+                                    with response_content(response_content, unsafe_content=True):
+                                        st.write_stream(stream(response_content))
+                                        st.markdown(response_content)
+                                    assistant_response["content"] = response_content
+                                    st.session_state.messages.append({"role": "assistant", "content": content})
+
+                            else:
+                                response_content = "⚠️ Failed to generate SQL."
+                                failed_response = True
+                                with response_content(response_content, unsafe_content=True):
+                                    st.write_stream(stream(response_content))
+                                    st.markdown(response_content)
+                                assistant_response["content"] = response_content
+                                st.session_state.messages.append({"role": "assistant", "content": content})
+
                     else:
-                        response_content = "⚠️ No search results found."
-                        failed_response = True
-                        with response_placeholder:
-                            st.write_stream(stream_text(response_content))
-                            st.markdown(response_content, unsafe_allow_html=True)
-                        assistant_response["content"] = response_content
-                        st.session_state.messages.append({"role": "assistant", "content": response_content})
+                        content = snowflake_content_call(combined_query, {"is_structured": False})
+                        _, _, search_results = content
+                        if search_results:
+                            raw_result = search_results[0]["result"]
+                            summary = generate_prompt(summarycombined_query)
+                            if summary:
+                                response_content = f"\n{summary}"
+                            else:
+                                    response_content = f"\n**Unsummarized Response:**\n{summarize_raw(raw_result)}"
+                            with response_content(response_content, unsafe_content=True):
+                                st.write_stream(stream(response_content))
+                            response_content(response_content)
+                            st.session_state.messages.append({"                                role="assistant":", "content": response_content})
+                            else:
+                                response_content = "❌ No results."
+                                failed_response = True
+                                with response_content(response_content, unsafe_content=True):
+                                    st.write_stream(stream(response_content))
+                                    st.markdown(response_content)
+                                assistant_response["content"] = response_content
+                                st.session_state.messages.append({"role": "assistant", content="content": response_content})
 
-                if failed_response:
-                    suggestions = suggest_sample_questions(combined_query)
-                    response_content = "⚠️ I’m not sure about your question. Here are some questions you can try:\n\n"
-                    for i, suggestion in enumerate(suggestions, 1):
-                        response_content += f"{i}. {suggestion}\n"
-                    response_content += "\nThese questions might help clarify your query. Feel free to try one or rephrase your question!"
-                    with response_placeholder:
-                        st.write_stream(stream_text(response_content))
-                        st.markdown(response_content, unsafe_allow_html=True)
-                    assistant_response["content"] = response_content
-                    st.session_state.last_suggestions = suggestions
-                    st.session_state.messages.append({"role": "assistant", "content": response_content})
+                        if failed_response:
+                            suggestions = get_sample_questions(suggestionscombined_query)
+                            response_content = "\n⚠️ I’m not sure what you meant. Here are some suggestions:\n\n"
+                            for j, suggestion in enumerate(suggestions, 1):
+                                response_content += f"{j}. {suggestion}\n"
+                            response_content += "\nTry one of these or rephrase your question."
+                            with response_content(response_content, unsafe_content=True):
+                                st.write_stream(stream(response_content))
+                                st.markdown(response_content)
+                            assistant_response["content"] = response_content
+                            st.session_state.last_suggestions = suggestions
+                            st.session_state.messages.append({"role": "assistant", "content": response})
 
-                if not (is_greeting or is_generic or is_suggestion):
-                    follow_up_questions = suggest_follow_up_questions(combined_query)
-                    assistant_response["follow_up_questions"] = follow_up_questions
+                            st.session_state["content"] = response_content
+                            if not is_greeting or not is_generic or not is_suggestion:
+                                suggestions = get_followup_questions(combined_query)
+                                st.session_state["followup_questions"] = suggestions
 
-                st.session_state.chat_history.append(assistant_response)
-                st.session_state.current_query = combined_query
-                st.session_state.current_results = assistant_response.get("results")
-                st.session_state.current_sql = assistant_response.get("sql")
-                st.session_state.current_summary = assistant_response.get("summary")
-                st.session_state.previous_query = combined_query
-                st.session_state.previous_sql = assistant_response.get("sql")
-                st.session_state.previous_results = assistant_response.get("results")
-                st.session_state.query = None
+                            st.session_state.chat_history.append({"role": "assistant", "content": response_content})
+                            st.session_state.current_query = combined_query
+                            st.session_state.current_results = response_content.get("results")
+                            st.session_state.current_sql = response_content["sql"]
+                            st.session_state.current_summary = response_content.get("summary")
+                            st.session_state.previous_query = combined_query
+                            st.session_state.previous_sql = response_content["sql"]
+                            st.session_state.previous_results = response_content.get("results")
+                            st.session_state.query = None
 
-                if not (is_greeting or is_generic or is_suggestion) and "follow_up_questions" in assistant_response:
-                    st.markdown("**Follow-Up Questions:**")
-                    for idx, follow_up in enumerate(follow_up_questions):
-                        if st.button(follow_up, key=f"follow_up_{hash(assistant_response['content'])}_{idx}", help="Click to ask this follow-up question"):
-                            st.session_state.query = follow_up
-                            st.session_state.show_greeting = False
+                            if st.session_state.query == None:
+                                st.markdown("**Follow-Up Questions:**")
+                                for i, suggestion in enumerate(suggestions):
+                                    if st.button(suggestion["question"], key=f"question_{i}", help=f"Ask: {suggestion['question']}"):                                        st.session_state.query = suggestion
+                                    st.session_state.show_greeting = ""
