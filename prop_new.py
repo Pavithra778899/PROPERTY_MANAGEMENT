@@ -637,9 +637,9 @@ else:
 
             # Display Chart.js chart
             st.markdown(f"**📈 {chart_type}**")
-            ```chartjs
+            
             {json.dumps(chart_config, indent=2)}
-            ```
+            
 
         except Exception as e:
             st.error(f"❌ Error generating chart: {str(e)}")
