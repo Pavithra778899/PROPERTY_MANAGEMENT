@@ -542,17 +542,17 @@ else:
                 return questions[:5]
             else:
                 return [
-                    "Which properties have the highest occupancy rates?",
+                    "What are the total number of active leases?",
                     "What is the average rent collected per tenant?",
-                    "Which leases expire in the next 30 days?",
+                    "Total number of properties?",
                     "What’s the total rental income by property?",
                     "Which tenants have pending rent payments?"
                 ]
         except Exception as e:
             return [
-                "Which properties have the highest occupancy rates?",
+                "What are the total number of active leases?",
                 "What is the average rent collected per tenant?",
-                "Which leases expire in the next 30 days?",
+                "Total number of properties?",
                 "What’s the total rental income by property?",
                 "Which tenants have pending rent payments?"
             ]
@@ -702,7 +702,7 @@ else:
                 "What is the number of properties by occupancy status?",
                 "What is the number of properties currently leased?",
                 "What is the average rent collected per tenant?",
-                "Which leases expire in the next 30 days?",
+                "Total number of properties?",
                 "What’s the total rental income by property?",
                 "Which tenants have pending rent payments?"
             ]
@@ -845,7 +845,7 @@ else:
                     suggestions = [
                         "Total number of properties currently occupied?",
                         "What is the average rent collected per tenant?",
-                        "Which leases expire in the next 30 days?",
+                        "Total number of properties?",
                         "What’s the total rental income by property?"
                     ]
                     for i, suggestion in enumerate(suggestions, 1):
