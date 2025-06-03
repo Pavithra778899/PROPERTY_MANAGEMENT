@@ -667,7 +667,7 @@ else:
     st.markdown(
     """
     <div class="fixed-header">
-        <h1 style='font-size: 20px; color: #29B5E8; margin-bottom: 4px;'>
+        <h1 style='font-size: 17px; color: #29B5E8; margin-bottom: 4px;'>
             Cortex AI – Property Management Assistant by DiLytics
         </h1>
         <p style='font-size: 11px; color: #333;'>
