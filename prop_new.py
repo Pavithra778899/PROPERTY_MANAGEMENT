@@ -255,28 +255,42 @@ def get_chat_history():
     return st.session_state.chat_history[start_index : len(st.session_state.chat_history) - 1]
 
 def make_chat_history_summary(chat_history, question):
+    # Combine chat messages into a readable history string
     chat_history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history])
+
+    # Instruction prompt for resolving follow-up questions into standalone queries
     prompt = f"""
-        [INST]
-        You are a conversational AI assistant. Based on the chat history below and the current question, generate a single, clear, and concise query that combines the context of the chat history with the current question. The resulting query should be in natural language and should reflect the user's intent in the conversational flow. Ensure the query is standalone and can be understood without needing to refer back to the chat history.
+[INST]
+You are a smart assistant helping users ask clear questions based on a conversation. Rewrite the latest question into a standalone, complete query using the chat history for context.
 
-        For example:
-        - If the chat history contains "user: Total number of properties currently occupied?" and the current question is "by state", the resulting query should be "What is the total number of properties currently occupied by state?"
+Examples:
+- If chat history is:
+  user: What is the total number of leases?
+  assistant: 150
+  user: by region
+  Then generate: "What is the total number of leases by region?"
 
-        Answer with only the query. Do not add any explanation.
+Use this format for the input:
+<chat_history>
+{chat_history_str}
+</chat_history>
+<question>
+{question}
+</question>
 
-        <chat_history>
-        {chat_history_str}
-        </chat_history>
-        <question>
-        {question}
-        </question>
-        [/INST]
-    """
-    summary = complete(st.session_state.model_name, prompt)
+Answer with only the full rewritten question.
+[/INST]
+"""
+
+    # Send prompt to completion function
+    summary = complete(st.session_state.model_name, prompt.strip())
+
+    # Debug mode visibility
     if st.session_state.debug_mode:
-        st.sidebar.text_area("Chat History Summary", summary.replace("$", "\$"), height=150)
-    return summary
+        st.sidebar.text_area("Resolved Question", summary.replace("$", "\$"), height=150)
+
+    return summary.strip()
+
 def create_prompt(user_question):
     chat_history_str = ""
     if st.session_state.use_chat_history:
