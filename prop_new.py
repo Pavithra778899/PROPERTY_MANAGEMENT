@@ -701,7 +701,7 @@ else:
             Cortex AI – Property Management Assistant by Dilytics
         </h1>
         <p style='font-size: 18px; color: #333;'>
-            <strong>Welcome to Cortex AI. I am here to help with DiLytics Property Management Insights Solutions.</strong>
+            <strong>Welcome to Cortex AI. I am here to help with Dilytics Property Management Insights Solutions.</strong>
         </p>
     </div>
     """,
